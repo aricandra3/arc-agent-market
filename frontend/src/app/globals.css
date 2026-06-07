@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+:root {
+  --background: #060B18;
+  --foreground: #E8ECF4;
+  --accent: #3E74BB;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-accent: var(--accent);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Gradient glow effects */
+.glow {
+  position: relative;
+}
+.glow::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, #3E74BB 0%, #1a3a6b 50%, transparent 100%);
+  opacity: 0;
+  transition: opacity 0.3s;
+  z-index: -1;
+}
+.glow:hover::before {
+  opacity: 0.4;
+}
