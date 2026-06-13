@@ -1,10 +1,42 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useWalletStore } from '@/lib/store';
-import { publicClient, CONTRACTS, AGENT_REGISTRY_ABI, TASK_ESCROW_ABI, formatUSDC, loadAgentVerificationStats, type VerificationStats } from '@/lib/contracts';
-import TaskCard from '@/components/TaskCard';
-import Link from 'next/link';
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import {
+  BadgeCheck,
+  BriefcaseBusiness,
+  CircleDollarSign,
+  FileCheck2,
+  ListTodo,
+  Plus,
+  RadioTower,
+  Star,
+  UserRound,
+} from "lucide-react";
+import { EmptyState } from "@/components/EmptyState";
+import { PageHeader } from "@/components/PageHeader";
+import TaskCard from "@/components/TaskCard";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import {
+  AGENT_REGISTRY_ABI,
+  CONTRACTS,
+  TASK_ESCROW_ABI,
+  formatPercentBps,
+  formatUSDC,
+  loadAgentVerificationStats,
+  publicClient,
+  shortAddress,
+  type VerificationStats,
+} from "@/lib/contracts";
+import { useWalletStore } from "@/lib/store";
 
 interface DashboardAgent {
   name: string;
@@ -31,145 +63,396 @@ interface DashboardTask {
 export default function DashboardPage() {
   const { address, isConnected } = useWalletStore();
   const [agent, setAgent] = useState<DashboardAgent | null>(null);
-  const [myTasks, setMyTasks] = useState<DashboardTask[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [requestedTasks, setRequestedTasks] = useState<DashboardTask[]>([]);
+  const [providerTasks, setProviderTasks] = useState<DashboardTask[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     if (!address) return;
-    const walletAddress = address;
-    
+
+    const walletAddress = address as `0x${string}`;
+    let isCurrent = true;
+
+    async function loadTaskRecords(ids: readonly bigint[]) {
+      const records = await Promise.all(
+        [...ids]
+          .slice(-10)
+          .reverse()
+          .map(async (id): Promise<DashboardTask | null> => {
+            try {
+              const data = await publicClient.readContract({
+                address: CONTRACTS.TASK_ESCROW,
+                abi: TASK_ESCROW_ABI,
+                functionName: "getTask",
+                args: [id],
+              });
+
+              return {
+                id: Number(id),
+                requester: data[0],
+                provider: data[1],
+                budget: data[2],
+                description: data[3],
+                status: Number(data[4]),
+                createdAt: data[5],
+                deadline: data[6],
+              };
+            } catch (taskError) {
+              console.error(`Failed to load task ${id}:`, taskError);
+              return null;
+            }
+          }),
+      );
+
+      return records.filter(
+        (record): record is DashboardTask => record !== null,
+      );
+    }
+
+    async function loadAgentProfile(): Promise<DashboardAgent | null> {
+      const isRegistered = await publicClient.readContract({
+        address: CONTRACTS.AGENT_REGISTRY,
+        abi: AGENT_REGISTRY_ABI,
+        functionName: "isRegistered",
+        args: [walletAddress],
+      });
+
+      if (!isRegistered) return null;
+
+      const [data, verificationStats] = await Promise.all([
+        publicClient.readContract({
+          address: CONTRACTS.AGENT_REGISTRY,
+          abi: AGENT_REGISTRY_ABI,
+          functionName: "getAgent",
+          args: [walletAddress],
+        }),
+        loadAgentVerificationStats(walletAddress),
+      ]);
+
+      return {
+        name: data[0],
+        skills: [...data[2]],
+        ratePerTask: data[3],
+        completedTasks: data[5],
+        totalEarnings: data[6],
+        averageRating: data[7],
+        ratingCount: data[8],
+        verificationStats,
+      };
+    }
+
     async function loadDashboard() {
+      setIsLoading(true);
+      setLoadError("");
+
       try {
-        // Load agent profile
-        try {
-          const isReg = await publicClient.readContract({
-            address: CONTRACTS.AGENT_REGISTRY,
-            abi: AGENT_REGISTRY_ABI,
-            functionName: 'isRegistered',
-            args: [walletAddress as `0x${string}`],
-          });
-          if (isReg) {
-            const data = await publicClient.readContract({
-              address: CONTRACTS.AGENT_REGISTRY,
-              abi: AGENT_REGISTRY_ABI,
-              functionName: 'getAgent',
-              args: [walletAddress as `0x${string}`],
-            });
-            setAgent({
-              name: data[0], skills: [...data[2]], ratePerTask: data[3],
-              completedTasks: data[5], totalEarnings: data[6],
-              averageRating: data[7], ratingCount: data[8],
-              verificationStats: await loadAgentVerificationStats(walletAddress),
-            });
-          }
-        } catch {}
+        const [profile, requesterIds, providerIds] = await Promise.all([
+          loadAgentProfile(),
+          publicClient.readContract({
+            address: CONTRACTS.TASK_ESCROW,
+            abi: TASK_ESCROW_ABI,
+            functionName: "getRequesterTasks",
+            args: [walletAddress],
+          }),
+          publicClient.readContract({
+            address: CONTRACTS.TASK_ESCROW,
+            abi: TASK_ESCROW_ABI,
+            functionName: "getProviderTasks",
+            args: [walletAddress],
+          }),
+        ]);
+        const [requested, assigned] = await Promise.all([
+          loadTaskRecords(requesterIds),
+          loadTaskRecords(providerIds),
+        ]);
 
-        // Load tasks
-        const taskIds = await publicClient.readContract({
-          address: CONTRACTS.TASK_ESCROW,
-          abi: TASK_ESCROW_ABI,
-          functionName: 'getRequesterTasks',
-          args: [walletAddress as `0x${string}`],
-        });
-
-        const tasks: DashboardTask[] = [];
-        for (const id of taskIds.slice(0, 10)) {
-          try {
-            const data = await publicClient.readContract({
-              address: CONTRACTS.TASK_ESCROW,
-              abi: TASK_ESCROW_ABI,
-              functionName: 'getTask',
-              args: [id],
-            });
-            tasks.push({
-              id: Number(id), requester: data[0], provider: data[1],
-              budget: data[2], description: data[3], status: Number(data[4]),
-              createdAt: data[5], deadline: data[6],
-            });
-          } catch {}
+        if (!isCurrent) return;
+        setAgent(profile);
+        setRequestedTasks(requested);
+        setProviderTasks(assigned);
+      } catch (error) {
+        console.error("Failed to load dashboard:", error);
+        if (isCurrent) {
+          setLoadError(
+            "Dashboard data could not be read from Arc testnet. Try again shortly.",
+          );
         }
-        setMyTasks(tasks);
-      } catch (err) {
-        console.error('Failed to load dashboard:', err);
       } finally {
-        setIsLoading(false);
+        if (isCurrent) setIsLoading(false);
       }
     }
+
     loadDashboard();
+
+    return () => {
+      isCurrent = false;
+    };
   }, [address]);
 
   if (!isConnected) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-20 text-center">
-        <h1 className="text-4xl font-bold text-white mb-4">Dashboard</h1>
-        <p className="text-slate-400 mb-8">Connect your wallet to view your dashboard</p>
+      <div className="app-container py-12">
+        <EmptyState
+          icon={UserRound}
+          title="Connect to open your workspace"
+          description="Your requester tasks, assigned agent work, earnings, and verified receipts will appear here."
+          action={
+            <Button asChild variant="outline">
+              <Link href="/agents">Browse agents</Link>
+            </Button>
+          }
+        />
       </div>
     );
   }
 
   if (isLoading) {
-    return <div className="max-w-7xl mx-auto px-4 py-20 text-center text-slate-400">Loading dashboard...</div>;
+    return (
+      <div className="app-container space-y-7 py-10 sm:py-14">
+        <Skeleton className="h-28 rounded-[2px] bg-primary/10" />
+        <Skeleton className="h-48 rounded-[2px] bg-primary/10" />
+        <Skeleton className="h-64 rounded-[2px] bg-primary/10" />
+      </div>
+    );
   }
 
-  const agentVerifiedReceipts = Number(agent?.verificationStats?.totalReceipts ?? BigInt(0));
+  const receiptCount = Number(
+    agent?.verificationStats?.totalReceipts ?? BigInt(0),
+  );
+  const rating =
+    agent && Number(agent.ratingCount) > 0
+      ? Number(agent.averageRating) / 100
+      : 0;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-4xl font-bold text-white">Dashboard</h1>
-        <span className="text-sm text-slate-500 font-mono">{address}</span>
-      </div>
+    <div className="app-container py-10 sm:py-14">
+      <PageHeader
+        eyebrow={`Workspace / ${shortAddress(address || "")}`}
+        title="Operations dashboard"
+        description="Track work from both sides of the marketplace and keep payment, delivery, and verification state in one place."
+        action={
+          <Button asChild>
+            <Link href="/tasks/create">
+              <Plus aria-hidden="true" />
+              Create task
+            </Link>
+          </Button>
+        }
+      />
 
-      {/* Agent Profile Summary */}
-      {agent ? (
-        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6 mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-semibold text-white">{agent.name}</h2>
-              <div className="flex gap-2 mt-2">
-                {agent.skills.map((s: string) => (
-                  <span key={s} className="px-2 py-1 text-xs bg-blue-500/10 text-blue-400 rounded-md">{s}</span>
-                ))}
-              </div>
-            </div>
-            <div className="text-right">
-              <div className="text-2xl font-bold text-green-400">${formatUSDC(agent.totalEarnings)}</div>
-              <div className="text-sm text-slate-500">{Number(agent.completedTasks)} tasks completed</div>
-              {agentVerifiedReceipts > 0 && (
-                <div className="mt-1 text-xs text-emerald-300">
-                  {agentVerifiedReceipts} verified receipts
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6 mb-8 text-center">
-          <p className="text-slate-400 mb-4">You have not registered as an agent yet</p>
-          <button className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg">
-            Register as Agent
-          </button>
+      {loadError && (
+        <div
+          className="mt-7 border border-[#d36c72]/70 bg-[#351b28]/55 px-5 py-4 text-sm text-[#f1b3b7]"
+          role="alert"
+        >
+          {loadError}
         </div>
       )}
 
-      {/* My Tasks */}
-      <div>
-        <h2 className="text-2xl font-bold text-white mb-6">My Tasks</h2>
-        {myTasks.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-slate-500 mb-4">No tasks yet</p>
-            <Link href="/tasks/create" className="text-blue-400 hover:text-blue-300">
-              Create your first task →
-            </Link>
-          </div>
+      <section className="mt-7 brutal-surface">
+        {agent ? (
+          <>
+            <div className="flex flex-col gap-5 border-b border-border/55 p-5 sm:flex-row sm:items-start sm:justify-between sm:p-6">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-3">
+                  <h2 className="text-xl font-semibold text-foreground">
+                    {agent.name}
+                  </h2>
+                  <Badge
+                    variant="outline"
+                    className="border-[#70b7ad]/65 bg-[#102c32] text-[#9cd4cc]"
+                  >
+                    <BadgeCheck aria-hidden="true" />
+                    Registered agent
+                  </Badge>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {agent.skills.map((skill) => (
+                    <Badge
+                      key={skill}
+                      variant="outline"
+                      className="border-[#416789]/70 bg-[#10243c] text-[#b8d0e6]"
+                    >
+                      {skill}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+              <Button asChild variant="outline" size="sm">
+                <Link href={`/agents/${address}`}>View public profile</Link>
+              </Button>
+            </div>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-5">
+              <DashboardMetric
+                icon={CircleDollarSign}
+                label="Task rate"
+                value={`${formatUSDC(agent.ratePerTask)} USDC`}
+              />
+              <DashboardMetric
+                icon={BriefcaseBusiness}
+                label="Completed"
+                value={Number(agent.completedTasks).toLocaleString()}
+              />
+              <DashboardMetric
+                icon={CircleDollarSign}
+                label="Total earned"
+                value={`${formatUSDC(agent.totalEarnings)} USDC`}
+              />
+              <DashboardMetric
+                icon={Star}
+                label="Buyer rating"
+                value={
+                  Number(agent.ratingCount) > 0
+                    ? `${rating.toFixed(1)} / 5`
+                    : "No reviews"
+                }
+              />
+              <DashboardMetric
+                icon={FileCheck2}
+                label="Verified receipts"
+                value={
+                  receiptCount > 0
+                    ? receiptCount.toLocaleString()
+                    : "Not recorded"
+                }
+                accent={receiptCount > 0}
+              />
+            </div>
+            {agent.verificationStats && receiptCount > 0 && (
+              <div className="flex flex-wrap gap-x-6 gap-y-2 border-t border-border/55 px-5 py-4 font-mono text-xs text-muted-foreground sm:px-6">
+                <span>
+                  Pass rate{" "}
+                  <strong className="text-[#9cd4cc]">
+                    {formatPercentBps(agent.verificationStats.passRate)}
+                  </strong>
+                </span>
+                <span>
+                  Average proof score{" "}
+                  <strong className="text-foreground">
+                    {formatPercentBps(agent.verificationStats.averageScore)}
+                  </strong>
+                </span>
+              </div>
+            )}
+          </>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {myTasks.map((task) => (
-              <TaskCard key={task.id} {...task} />
-            ))}
+          <div className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-mono text-[11px] uppercase text-[#9fc1df]">
+                Agent identity
+              </p>
+              <h2 className="mt-2 text-xl font-semibold text-foreground">
+                Add a provider profile
+              </h2>
+              <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
+                Register this wallet to accept tasks, publish commercial terms,
+                and build a verifier-backed work history.
+              </p>
+            </div>
+            <Button asChild>
+              <Link href="/register">Register agent</Link>
+            </Button>
           </div>
         )}
-      </div>
+      </section>
+
+      <Tabs defaultValue="requested" className="mt-9">
+        <div className="flex flex-col gap-4 border-b border-border/65 pb-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="font-mono text-[11px] uppercase text-[#9fc1df]">
+              Task ledger
+            </p>
+            <h2 className="mt-2 text-xl font-semibold text-foreground">
+              Active work records
+            </h2>
+          </div>
+          <TabsList variant="line" className="h-auto gap-5 p-0">
+            <TabsTrigger value="requested" className="px-0 pb-2">
+              Requested
+              <span className="font-mono text-xs text-muted-foreground">
+                {requestedTasks.length}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger value="provider" className="px-0 pb-2">
+              Provider
+              <span className="font-mono text-xs text-muted-foreground">
+                {providerTasks.length}
+              </span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
+
+        <TabsContent value="requested" className="mt-6">
+          {requestedTasks.length > 0 ? (
+            <div className="grid gap-5 md:grid-cols-2">
+              {requestedTasks.map((task) => (
+                <TaskCard key={task.id} {...task} />
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              icon={ListTodo}
+              title="No requested tasks yet"
+              description="Create a funded work request for a specific agent or open it to the marketplace."
+              action={
+                <Button asChild>
+                  <Link href="/tasks/create">Create first task</Link>
+                </Button>
+              }
+            />
+          )}
+        </TabsContent>
+
+        <TabsContent value="provider" className="mt-6">
+          {providerTasks.length > 0 ? (
+            <div className="grid gap-5 md:grid-cols-2">
+              {providerTasks.map((task) => (
+                <TaskCard key={task.id} {...task} />
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              icon={RadioTower}
+              title="No assigned provider work"
+              description="Tasks assigned to this registered agent will appear here with their escrow and delivery state."
+              action={
+                <Button asChild variant="outline">
+                  <Link href="/agents">View marketplace</Link>
+                </Button>
+              }
+            />
+          )}
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function DashboardMetric({
+  icon: Icon,
+  label,
+  value,
+  accent = false,
+}: {
+  icon: typeof CircleDollarSign;
+  label: string;
+  value: string;
+  accent?: boolean;
+}) {
+  return (
+    <div className="min-h-28 border-r border-b border-border/55 p-5 lg:border-b-0">
+      <p className="flex items-center gap-2 text-xs text-muted-foreground">
+        <Icon className="size-3.5" aria-hidden="true" />
+        {label}
+      </p>
+      <p
+        className={`mt-3 font-mono text-sm font-semibold ${
+          accent ? "text-[#9cd4cc]" : "text-foreground"
+        }`}
+      >
+        {value}
+      </p>
     </div>
   );
 }
