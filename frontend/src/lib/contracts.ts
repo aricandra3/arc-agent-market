@@ -192,6 +192,25 @@ export function formatPercentBps(value: bigint | number): string {
   return `${(numeric / 100).toFixed(1)}%`;
 }
 
+export function shortAddress(address: string, start = 6, end = 4): string {
+  if (!address || address === ZERO_ADDRESS) return 'Open';
+  if (address.length <= start + end) return address;
+  return `${address.slice(0, start)}...${address.slice(-end)}`;
+}
+
+export function formatDate(timestamp: bigint): string {
+  return new Intl.DateTimeFormat('en', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(new Date(Number(timestamp) * 1000));
+}
+
+export function isUserRejectedError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message.toLowerCase() : '';
+  return message.includes('user rejected') || message.includes('user denied');
+}
+
 function toBigInt(value: unknown): bigint {
   if (typeof value === 'bigint') return value;
   if (typeof value === 'number' || typeof value === 'string') return BigInt(value);
