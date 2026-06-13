@@ -3,7 +3,7 @@
 import { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useWalletStore } from '@/lib/store';
-import { sendTransaction, CONTRACTS, TASK_ESCROW_ABI, ERC20_ABI, publicClient } from '@/lib/contracts';
+import { sendTransaction, CONTRACTS, TASK_ESCROW_ABI, ERC20_ABI } from '@/lib/contracts';
 import { encodeFunctionData, parseUnits } from 'viem';
 
 export default function CreateTaskPageWrapper() {
@@ -16,7 +16,7 @@ export default function CreateTaskPageWrapper() {
 
 function CreateTaskPage() {
   const searchParams = useSearchParams();
-  const { address, isConnected } = useWalletStore();
+  const { isConnected } = useWalletStore();
   const [form, setForm] = useState({
     provider: searchParams.get('provider') || '',
     description: '',
@@ -58,9 +58,10 @@ function CreateTaskPage() {
       const createTx = await sendTransaction(CONTRACTS.TASK_ESCROW, createData);
       setTxHash(createTx);
       alert('Task created successfully!');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to create task:', err);
-      alert('Failed: ' + (err.message || 'Unknown error'));
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      alert('Failed: ' + message);
     } finally {
       setIsSubmitting(false);
     }

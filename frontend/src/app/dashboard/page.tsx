@@ -2,18 +2,41 @@
 
 import { useEffect, useState } from 'react';
 import { useWalletStore } from '@/lib/store';
-import { publicClient, CONTRACTS, AGENT_REGISTRY_ABI, TASK_ESCROW_ABI, formatUSDC, TASK_STATUS } from '@/lib/contracts';
+import { publicClient, CONTRACTS, AGENT_REGISTRY_ABI, TASK_ESCROW_ABI, formatUSDC, loadAgentVerificationStats, type VerificationStats } from '@/lib/contracts';
 import TaskCard from '@/components/TaskCard';
 import Link from 'next/link';
 
+interface DashboardAgent {
+  name: string;
+  skills: string[];
+  ratePerTask: bigint;
+  completedTasks: bigint;
+  totalEarnings: bigint;
+  averageRating: bigint;
+  ratingCount: bigint;
+  verificationStats: VerificationStats | null;
+}
+
+interface DashboardTask {
+  id: number;
+  requester: string;
+  provider: string;
+  budget: bigint;
+  description: string;
+  status: number;
+  createdAt: bigint;
+  deadline: bigint;
+}
+
 export default function DashboardPage() {
   const { address, isConnected } = useWalletStore();
-  const [agent, setAgent] = useState<any>(null);
-  const [myTasks, setMyTasks] = useState<any[]>([]);
+  const [agent, setAgent] = useState<DashboardAgent | null>(null);
+  const [myTasks, setMyTasks] = useState<DashboardTask[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!address) { setIsLoading(false); return; }
+    if (!address) return;
+    const walletAddress = address;
     
     async function loadDashboard() {
       try {
@@ -23,32 +46,33 @@ export default function DashboardPage() {
             address: CONTRACTS.AGENT_REGISTRY,
             abi: AGENT_REGISTRY_ABI,
             functionName: 'isRegistered',
-            args: [address as `0x${string}`],
+            args: [walletAddress as `0x${string}`],
           });
           if (isReg) {
             const data = await publicClient.readContract({
               address: CONTRACTS.AGENT_REGISTRY,
               abi: AGENT_REGISTRY_ABI,
               functionName: 'getAgent',
-              args: [address as `0x${string}`],
+              args: [walletAddress as `0x${string}`],
             });
             setAgent({
-              name: data[0], skills: data[2], ratePerTask: data[3],
+              name: data[0], skills: [...data[2]], ratePerTask: data[3],
               completedTasks: data[5], totalEarnings: data[6],
               averageRating: data[7], ratingCount: data[8],
+              verificationStats: await loadAgentVerificationStats(walletAddress),
             });
           }
-        } catch (e) {}
+        } catch {}
 
         // Load tasks
         const taskIds = await publicClient.readContract({
           address: CONTRACTS.TASK_ESCROW,
           abi: TASK_ESCROW_ABI,
           functionName: 'getRequesterTasks',
-          args: [address as `0x${string}`],
+          args: [walletAddress as `0x${string}`],
         });
 
-        const tasks = [];
+        const tasks: DashboardTask[] = [];
         for (const id of taskIds.slice(0, 10)) {
           try {
             const data = await publicClient.readContract({
@@ -62,7 +86,7 @@ export default function DashboardPage() {
               budget: data[2], description: data[3], status: Number(data[4]),
               createdAt: data[5], deadline: data[6],
             });
-          } catch (e) {}
+          } catch {}
         }
         setMyTasks(tasks);
       } catch (err) {
@@ -87,6 +111,8 @@ export default function DashboardPage() {
     return <div className="max-w-7xl mx-auto px-4 py-20 text-center text-slate-400">Loading dashboard...</div>;
   }
 
+  const agentVerifiedReceipts = Number(agent?.verificationStats?.totalReceipts ?? BigInt(0));
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="flex items-center justify-between mb-8">
@@ -109,12 +135,17 @@ export default function DashboardPage() {
             <div className="text-right">
               <div className="text-2xl font-bold text-green-400">${formatUSDC(agent.totalEarnings)}</div>
               <div className="text-sm text-slate-500">{Number(agent.completedTasks)} tasks completed</div>
+              {agentVerifiedReceipts > 0 && (
+                <div className="mt-1 text-xs text-emerald-300">
+                  {agentVerifiedReceipts} verified receipts
+                </div>
+              )}
             </div>
           </div>
         </div>
       ) : (
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6 mb-8 text-center">
-          <p className="text-slate-400 mb-4">You haven't registered as an agent yet</p>
+          <p className="text-slate-400 mb-4">You have not registered as an agent yet</p>
           <button className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg">
             Register as Agent
           </button>

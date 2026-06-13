@@ -2,15 +2,39 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { publicClient, CONTRACTS, AGENT_REGISTRY_ABI, REPUTATION_ABI, formatUSDC, sendTransaction } from '@/lib/contracts';
+import { publicClient, CONTRACTS, AGENT_REGISTRY_ABI, REPUTATION_ABI, formatPercentBps, formatUSDC, loadAgentVerificationStats, type VerificationStats } from '@/lib/contracts';
 import { useWalletStore } from '@/lib/store';
+
+interface AgentProfile {
+  name: string;
+  description: string;
+  skills: string[];
+  ratePerTask: bigint;
+  ratePerCall: bigint;
+  completedTasks: bigint;
+  totalEarnings: bigint;
+  averageRating: bigint;
+  ratingCount: bigint;
+  isActive: boolean;
+  metadataURI: string;
+}
+
+interface ReputationSummary {
+  averageRating: bigint;
+  totalReviews: bigint;
+  completedTasks: bigint;
+  disputedTasks: bigint;
+  totalEarnings: bigint;
+  completionRate: bigint;
+}
 
 export default function AgentProfilePage() {
   const params = useParams();
   const address = params.id as string;
   const { isConnected } = useWalletStore();
-  const [agent, setAgent] = useState<any>(null);
-  const [reputation, setReputation] = useState<any>(null);
+  const [agent, setAgent] = useState<AgentProfile | null>(null);
+  const [reputation, setReputation] = useState<ReputationSummary | null>(null);
+  const [verificationStats, setVerificationStats] = useState<VerificationStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -23,7 +47,7 @@ export default function AgentProfilePage() {
           args: [address as `0x${string}`],
         });
         setAgent({
-          name: data[0], description: data[1], skills: data[2],
+          name: data[0], description: data[1], skills: [...data[2]],
           ratePerTask: data[3], ratePerCall: data[4], completedTasks: data[5],
           totalEarnings: data[6], averageRating: data[7], ratingCount: data[8],
           isActive: data[9], metadataURI: data[10],
@@ -40,7 +64,9 @@ export default function AgentProfilePage() {
             averageRating: rep[0], totalReviews: rep[1], completedTasks: rep[2],
             disputedTasks: rep[3], totalEarnings: rep[4], completionRate: rep[6],
           });
-        } catch (e) {}
+        } catch {}
+
+        setVerificationStats(await loadAgentVerificationStats(address));
       } catch (err) {
         console.error('Failed to load agent:', err);
       } finally {
@@ -59,6 +85,7 @@ export default function AgentProfilePage() {
   }
 
   const rating = Number(agent.ratingCount) > 0 ? Number(agent.averageRating) / 100 : 0;
+  const hasVerificationStats = verificationStats !== null && Number(verificationStats.totalReceipts) > 0;
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -114,6 +141,32 @@ export default function AgentProfilePage() {
                   <div className="text-yellow-400 text-lg">{'★'.repeat(Math.round(Number(reputation.averageRating) / 100))}</div>
                   <div className="text-sm text-slate-500">{Number(reputation.totalReviews)} reviews</div>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {hasVerificationStats && (
+          <div className="mb-8">
+            <h3 className="text-lg font-semibold text-white mb-4">Verified Work</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="border border-emerald-500/20 bg-emerald-500/10 rounded-xl p-4">
+                <div className="text-2xl font-bold text-emerald-300">
+                  {Number(verificationStats.totalReceipts)}
+                </div>
+                <div className="text-xs text-emerald-100/70">Receipts</div>
+              </div>
+              <div className="border border-slate-700/70 bg-slate-900/50 rounded-xl p-4">
+                <div className="text-2xl font-bold text-white">
+                  {formatPercentBps(verificationStats.passRate)}
+                </div>
+                <div className="text-xs text-slate-500">Pass Rate</div>
+              </div>
+              <div className="border border-slate-700/70 bg-slate-900/50 rounded-xl p-4">
+                <div className="text-2xl font-bold text-white">
+                  {formatPercentBps(verificationStats.averageScore)}
+                </div>
+                <div className="text-xs text-slate-500">Avg Score</div>
               </div>
             </div>
           </div>

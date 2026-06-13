@@ -17,11 +17,26 @@ function createSiweMessage(address: string, chainId: number, nonce: string) {
 }
 
 // Wallet providers
+type EthereumLikeProvider = {
+  request: (args: {
+    method: string;
+    params?: unknown[];
+  }) => Promise<unknown>;
+};
+
+type InjectedWalletProvider = EthereumLikeProvider & {
+  isMetaMask?: boolean;
+  isCoinbaseWallet?: boolean;
+  isTrust?: boolean;
+  isRabby?: boolean;
+  providers?: InjectedWalletProvider[];
+};
+
 type WalletOption = {
   id: string;
   name: string;
   icon: string;
-  detect: () => any; // returns provider or null
+  detect: () => EthereumLikeProvider | null;
 };
 
 export default function Navbar() {
@@ -36,7 +51,7 @@ export default function Navbar() {
     const options: WalletOption[] = [];
 
     if (typeof window !== 'undefined') {
-      const eth = (window as any).ethereum;
+      const eth = window.ethereum as InjectedWalletProvider | undefined;
 
       // MetaMask
       if (eth?.isMetaMask) {
@@ -89,8 +104,9 @@ export default function Navbar() {
       }
 
       // If multiple providers, detect via EIP-6963
-      if (eth?.providers?.length > 0) {
-        for (const p of eth.providers) {
+      const injectedProviders = eth?.providers ?? [];
+      if (injectedProviders.length > 0) {
+        for (const p of injectedProviders) {
           if (p.isMetaMask && !options.find(o => o.id === 'metamask')) {
             options.push({ id: 'metamask', name: 'MetaMask', icon: '🦊', detect: () => p });
           }
@@ -109,7 +125,8 @@ export default function Navbar() {
       detect: () => null, // handled separately
     });
 
-    setWalletOptions(options);
+    // Wallet extensions are only detectable after mount.
+    queueMicrotask(() => setWalletOptions(options));
   }, []);
 
   // Restore session
@@ -123,26 +140,27 @@ export default function Navbar() {
         } else {
           localStorage.removeItem('siwe-session');
         }
-      } catch (e) {
+      } catch {
         localStorage.removeItem('siwe-session');
       }
     }
   }, [setConnected]);
 
-  const signWithProvider = useCallback(async (provider: any, userAddress: string) => {
-    const chainIdHex = await provider.request({ method: 'eth_chainId' });
-    const chainId = parseInt(chainIdHex, 16);
+  const signWithProvider = useCallback(async (provider: EthereumLikeProvider, userAddress: string) => {
+    const chainIdRaw = await provider.request({ method: 'eth_chainId' });
+    const chainId = typeof chainIdRaw === 'string' ? parseInt(chainIdRaw, 16) : Number(chainIdRaw);
     const nonce = generateNonce();
     const message = createSiweMessage(userAddress, chainId, nonce);
 
-    const signature = await provider.request({
+    const signatureRaw = await provider.request({
       method: 'personal_sign',
       params: [message, userAddress],
     });
+    if (typeof signatureRaw !== 'string') throw new Error('Wallet returned an invalid signature.');
 
     const isValid = await verifyMessage({
       message,
-      signature: signature as `0x${string}`,
+      signature: signatureRaw as `0x${string}`,
       address: userAddress as `0x${string}`,
     });
 
@@ -152,7 +170,7 @@ export default function Navbar() {
       address: userAddress,
       chainId,
       nonce,
-      signature,
+      signature: signatureRaw,
       expiresAt: Date.now() + 24 * 60 * 60 * 1000,
     };
     localStorage.setItem('siwe-session', JSON.stringify(session));
@@ -197,20 +215,20 @@ export default function Navbar() {
         const accounts = await wcProvider.request({ method: 'eth_accounts' }) as string[];
         if (!accounts || accounts.length === 0) throw new Error('No accounts');
 
-        await signWithProvider(wcProvider, accounts[0]);
+        await signWithProvider(wcProvider as EthereumLikeProvider, accounts[0]);
       } else {
         // Injected wallet flow
         const provider = option.detect();
         if (!provider) throw new Error(`${option.name} not detected`);
 
-        const accounts = await provider.request({ method: 'eth_requestAccounts' });
+        const accounts = await provider.request({ method: 'eth_requestAccounts' }) as string[];
         if (!accounts || accounts.length === 0) throw new Error('No accounts returned');
 
         await signWithProvider(provider, accounts[0]);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Wallet connect failed:', err);
-      setError(err.message || 'Connection failed');
+      setError(err instanceof Error ? err.message : 'Connection failed');
     } finally {
       setIsSigningIn(false);
     }
@@ -295,7 +313,7 @@ export default function Navbar() {
 
             <div className="mt-6 text-center">
               <p className="text-xs text-slate-600">
-                Don't have a wallet?{' '}
+                Do not have a wallet?{' '}
                 <a href="https://metamask.io" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">
                   Get MetaMask
                 </a>

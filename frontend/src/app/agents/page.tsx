@@ -2,10 +2,25 @@
 
 import { useEffect, useState } from 'react';
 import AgentCard from '@/components/AgentCard';
-import { publicClient, CONTRACTS, AGENT_REGISTRY_ABI } from '@/lib/contracts';
+import { publicClient, CONTRACTS, AGENT_REGISTRY_ABI, loadAgentVerificationStats, type VerificationStats } from '@/lib/contracts';
+
+interface AgentSummary {
+  address: string;
+  name: string;
+  description: string;
+  skills: string[];
+  ratePerTask: bigint;
+  ratePerCall: bigint;
+  completedTasks: bigint;
+  totalEarnings: bigint;
+  averageRating: bigint;
+  ratingCount: bigint;
+  isActive: boolean;
+  verificationStats: VerificationStats | null;
+}
 
 export default function AgentsPage() {
-  const [agents, setAgents] = useState<any[]>([]);
+  const [agents, setAgents] = useState<AgentSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [skillFilter, setSkillFilter] = useState('');
@@ -19,7 +34,7 @@ export default function AgentsPage() {
           functionName: 'getAgentCount',
         });
 
-        const loaded = [];
+        const loaded: AgentSummary[] = [];
         for (let i = 0; i < Number(count); i++) {
           try {
             const addr = await publicClient.readContract({
@@ -38,7 +53,7 @@ export default function AgentsPage() {
               address: addr,
               name: data[0],
               description: data[1],
-              skills: data[2],
+              skills: [...data[2]],
               ratePerTask: data[3],
               ratePerCall: data[4],
               completedTasks: data[5],
@@ -46,8 +61,9 @@ export default function AgentsPage() {
               averageRating: data[7],
               ratingCount: data[8],
               isActive: data[9],
+              verificationStats: await loadAgentVerificationStats(addr),
             });
-          } catch (e) {}
+          } catch {}
         }
         setAgents(loaded);
       } catch (err) {

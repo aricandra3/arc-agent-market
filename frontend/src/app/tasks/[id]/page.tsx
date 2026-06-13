@@ -2,15 +2,28 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { publicClient, CONTRACTS, TASK_ESCROW_ABI, TASK_STATUS, formatUSDC, sendTransaction } from '@/lib/contracts';
+import { publicClient, CONTRACTS, TASK_ESCROW_ABI, TASK_STATUS, RECEIPT_STATUS, formatPercentBps, formatUSDC, loadTaskReceipt, sendTransaction, type WorkReceiptRecord } from '@/lib/contracts';
 import { useWalletStore } from '@/lib/store';
 import { encodeFunctionData } from 'viem';
+
+interface TaskDetail {
+  requester: string;
+  provider: string;
+  budget: bigint;
+  description: string;
+  status: number;
+  createdAt: bigint;
+  deadline: bigint;
+  deliverableHash: string;
+  deliverableURI: string;
+}
 
 export default function TaskDetailPage() {
   const params = useParams();
   const taskId = params.id as string;
   const { address, isConnected } = useWalletStore();
-  const [task, setTask] = useState<any>(null);
+  const [task, setTask] = useState<TaskDetail | null>(null);
+  const [receipt, setReceipt] = useState<WorkReceiptRecord | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -27,6 +40,7 @@ export default function TaskDetailPage() {
           description: data[3], status: Number(data[4]), createdAt: data[5],
           deadline: data[6], deliverableHash: data[7], deliverableURI: data[8],
         });
+        setReceipt(await loadTaskReceipt(BigInt(taskId)));
       } catch (err) {
         console.error('Failed to load task:', err);
       } finally {
@@ -36,18 +50,19 @@ export default function TaskDetailPage() {
     loadTask();
   }, [taskId]);
 
-  const handleAction = async (action: string) => {
+  const handleAction = async (action: 'startTask' | 'approveTask' | 'cancelTask') => {
     if (!isConnected) return;
     try {
       const data = encodeFunctionData({
         abi: TASK_ESCROW_ABI,
-        functionName: action as any,
+        functionName: action,
         args: [BigInt(taskId)],
       });
       const tx = await sendTransaction(CONTRACTS.TASK_ESCROW, data);
       alert(`${action} submitted! Tx: ${tx}`);
-    } catch (err: any) {
-      alert(`Failed: ${err.message}`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      alert(`Failed: ${message}`);
     }
   };
 
@@ -98,6 +113,67 @@ export default function TaskDetailPage() {
             </a>
           </div>
         )}
+
+        <div className="mb-8 border border-slate-700/70 bg-slate-900/40 rounded-xl p-5">
+          <div className="flex items-center justify-between gap-4 mb-3">
+            <h3 className="text-lg font-semibold text-white">Proof Receipt</h3>
+            <span
+              className={`px-2 py-1 text-xs rounded-full ${
+                receipt?.status === 2
+                  ? 'bg-emerald-500/20 text-emerald-300'
+                  : receipt?.status === 3
+                    ? 'bg-red-500/20 text-red-300'
+                    : receipt?.status === 1
+                      ? 'bg-yellow-500/20 text-yellow-300'
+                      : 'bg-slate-700/80 text-slate-300'
+              }`}
+            >
+              {receipt ? RECEIPT_STATUS[receipt.status] : 'No Receipt'}
+            </span>
+          </div>
+
+          {receipt ? (
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                <div>
+                  <div className="text-xs text-slate-500">Score</div>
+                  <div className="text-slate-200">
+                    {receipt.status > 1 ? formatPercentBps(receipt.score) : 'Pending'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500">Verifier</div>
+                  <div className="font-mono text-slate-200">
+                    {receipt.verifier === '0x0000000000000000000000000000000000000000'
+                      ? 'Pending'
+                      : `${receipt.verifier.slice(0, 8)}...`}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500">Receipt</div>
+                  <div className="text-slate-200">#{Number(receipt.id)}</div>
+                </div>
+              </div>
+
+              {receipt.proofURI && (
+                <a
+                  href={receipt.proofURI}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex text-sm text-blue-400 hover:text-blue-300"
+                >
+                  View proof artifact
+                </a>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-slate-500">
+              {task.status >= 3
+                ? 'This task can receive a verifier-backed work receipt.'
+                : 'Proof receipts become available after the provider submits a deliverable.'}
+            </p>
+          )}
+        </div>
 
         {/* Actions */}
         {isConnected && (

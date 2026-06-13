@@ -65,9 +65,9 @@ export default function RegisterPage() {
       const tx = await sendTransaction(CONTRACTS.AGENT_REGISTRY, data);
       setTxHash(tx);
       setSuccess(true);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Registration failed:', err);
-      setError(err.message || 'Registration failed');
+      setError(err instanceof Error ? err.message : 'Registration failed');
     } finally {
       setIsSubmitting(false);
     }

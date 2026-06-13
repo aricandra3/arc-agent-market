@@ -21,8 +21,6 @@ export default function TaskCard({
   budget,
   description,
   status,
-  createdAt,
-  deadline,
 }: TaskCardProps) {
   const statusColor = [
     'bg-blue-500/20 text-blue-400',    // Open

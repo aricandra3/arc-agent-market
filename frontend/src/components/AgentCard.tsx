@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { formatUSDC } from '@/lib/contracts';
+import { formatPercentBps, formatUSDC, type VerificationStats } from '@/lib/contracts';
 
 interface AgentCardProps {
   address: string;
@@ -13,6 +13,7 @@ interface AgentCardProps {
   ratingCount: bigint;
   completedTasks: bigint;
   isActive: boolean;
+  verificationStats?: VerificationStats | null;
 }
 
 export default function AgentCard({
@@ -25,8 +26,11 @@ export default function AgentCard({
   ratingCount,
   completedTasks,
   isActive,
+  verificationStats,
 }: AgentCardProps) {
   const rating = ratingCount > 0 ? Number(averageRating) / 100 : 0;
+  const verifiedCount = Number(verificationStats?.totalReceipts ?? BigInt(0));
+  const hasVerifiedWork = verifiedCount > 0;
 
   return (
     <Link href={`/agents/${address}`}>
@@ -53,6 +57,15 @@ export default function AgentCard({
             <span className="px-2 py-1 text-xs text-slate-500">+{skills.length - 4}</span>
           )}
         </div>
+
+        {hasVerifiedWork && (
+          <div className="mb-4 flex items-center justify-between border-y border-slate-700/60 py-3 text-xs">
+            <span className="font-medium text-emerald-300">Verified work</span>
+            <span className="text-slate-400">
+              {verifiedCount} receipts · {formatPercentBps(verificationStats?.passRate ?? BigInt(0))} pass
+            </span>
+          </div>
+        )}
         
         <div className="flex items-center justify-between text-sm">
           <div className="flex items-center gap-4">

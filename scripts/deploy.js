@@ -38,15 +38,33 @@ async function main() {
   const reputationAddr = await reputation.getAddress();
   console.log("Reputation:", reputationAddr);
 
+  // 5. Deploy VerifierRegistry
+  console.log("\n--- Deploying VerifierRegistry ---");
+  const VerifierRegistry = await hre.ethers.getContractFactory("VerifierRegistry");
+  const verifierRegistry = await VerifierRegistry.deploy();
+  await verifierRegistry.waitForDeployment();
+  const verifierRegistryAddr = await verifierRegistry.getAddress();
+  console.log("VerifierRegistry:", verifierRegistryAddr);
+
+  // 6. Deploy WorkReceipt
+  console.log("\n--- Deploying WorkReceipt ---");
+  const WorkReceipt = await hre.ethers.getContractFactory("WorkReceipt");
+  const workReceipt = await WorkReceipt.deploy(escrowAddr, verifierRegistryAddr);
+  await workReceipt.waitForDeployment();
+  const workReceiptAddr = await workReceipt.getAddress();
+  console.log("WorkReceipt:", workReceiptAddr);
+
   // Summary
   console.log("\n========================================");
   console.log("DEPLOYMENT SUMMARY (Arc Testnet)");
   console.log("========================================");
-  console.log(`AgentRegistry: ${registryAddr}`);
-  console.log(`TaskEscrow:    ${escrowAddr}`);
-  console.log(`MicroPayment:  ${microPayAddr}`);
-  console.log(`Reputation:    ${reputationAddr}`);
-  console.log(`USDC:          ${USDC_ADDRESS}`);
+  console.log(`AgentRegistry:   ${registryAddr}`);
+  console.log(`TaskEscrow:      ${escrowAddr}`);
+  console.log(`MicroPayment:    ${microPayAddr}`);
+  console.log(`Reputation:      ${reputationAddr}`);
+  console.log(`VerifierRegistry:${verifierRegistryAddr}`);
+  console.log(`WorkReceipt:     ${workReceiptAddr}`);
+  console.log(`USDC:            ${USDC_ADDRESS}`);
   console.log("========================================");
 }
 

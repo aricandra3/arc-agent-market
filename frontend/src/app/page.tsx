@@ -3,11 +3,26 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import AgentCard from '@/components/AgentCard';
-import { publicClient, CONTRACTS, AGENT_REGISTRY_ABI, TASK_ESCROW_ABI, formatUSDC } from '@/lib/contracts';
+import { publicClient, CONTRACTS, AGENT_REGISTRY_ABI, TASK_ESCROW_ABI, loadAgentVerificationStats, type VerificationStats } from '@/lib/contracts';
+
+interface AgentSummary {
+  address: string;
+  name: string;
+  description: string;
+  skills: string[];
+  ratePerTask: bigint;
+  ratePerCall: bigint;
+  completedTasks: bigint;
+  totalEarnings: bigint;
+  averageRating: bigint;
+  ratingCount: bigint;
+  isActive: boolean;
+  verificationStats: VerificationStats | null;
+}
 
 export default function Home() {
   const [stats, setStats] = useState({ agents: 0, tasks: 0, volume: '0' });
-  const [featuredAgents, setFeaturedAgents] = useState<any[]>([]);
+  const [featuredAgents, setFeaturedAgents] = useState<AgentSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -34,7 +49,7 @@ export default function Home() {
         });
 
         // Load first 6 agents
-        const agents = [];
+        const agents: AgentSummary[] = [];
         const count = Math.min(Number(agentCount), 6);
         for (let i = 0; i < count; i++) {
           try {
@@ -54,7 +69,7 @@ export default function Home() {
               address: addr,
               name: agentData[0],
               description: agentData[1],
-              skills: agentData[2],
+              skills: [...agentData[2]],
               ratePerTask: agentData[3],
               ratePerCall: agentData[4],
               completedTasks: agentData[5],
@@ -62,6 +77,7 @@ export default function Home() {
               averageRating: agentData[7],
               ratingCount: agentData[8],
               isActive: agentData[9],
+              verificationStats: await loadAgentVerificationStats(addr),
             });
           } catch (e) {
             console.error(`Failed to load agent ${i}:`, e);
