@@ -1,45 +1,109 @@
 @import "tailwindcss";
 
 :root {
-  --background: #060B18;
-  --foreground: #E8ECF4;
-  --accent: #3E74BB;
+  --background: #071426;
+  --foreground: #f4f7fb;
+  --card: #10243c;
+  --card-foreground: #f4f7fb;
+  --popover: #0b192d;
+  --popover-foreground: #f4f7fb;
+  --primary: #c7dbf4;
+  --primary-foreground: #071426;
+  --secondary: #183654;
+  --secondary-foreground: #f4f7fb;
+  --muted: #10243c;
+  --muted-foreground: #9eb9d3;
+  --accent: #24496b;
+  --accent-foreground: #f4f7fb;
+  --destructive: #d36c72;
+  --border: #416789;
+  --input: #416789;
+  --ring: #c7dbf4;
+  --success: #6eb8ad;
+  --warning: #d4ad6f;
+  --surface-deep: #0b192d;
+  --surface-strong: #183654;
+  --steel: #24496b;
+  --ink: #071426;
+  --radius: 0.25rem;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --font-sans: var(--font-space-grotesk);
+  --font-mono: var(--font-ibm-plex-mono);
 }
 
 * {
+  border-color: var(--border);
   scrollbar-width: thin;
-  scrollbar-color: rgba(255,255,255,0.1) transparent;
+  scrollbar-color: rgb(127 167 200 / 35%) transparent;
+}
+
+html {
+  background: var(--background);
 }
 
 body {
+  min-height: 100vh;
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-space-grotesk), sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
-/* Gradient glow effects */
-.glow {
-  position: relative;
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
 }
-.glow::before {
-  content: '';
-  position: absolute;
-  inset: -1px;
-  border-radius: inherit;
-  background: linear-gradient(135deg, #3E74BB 0%, #1a3a6b 50%, transparent 100%);
-  opacity: 0;
-  transition: opacity 0.3s;
-  z-index: -1;
+
+.app-container {
+  width: min(100% - 2rem, 80rem);
+  margin-inline: auto;
 }
-.glow:hover::before {
-  opacity: 0.4;
+
+.brutal-surface {
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  background: var(--surface-deep);
+  box-shadow: 3px 3px 0 #040c18;
+}
+
+.glass-surface {
+  border: 1px solid color-mix(in srgb, var(--primary) 42%, transparent);
+  background: rgb(11 25 45 / 78%);
+  box-shadow: 3px 3px 0 #040c18;
+  backdrop-filter: blur(16px);
+}
+
+::selection {
+  background: var(--primary);
+  color: var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
