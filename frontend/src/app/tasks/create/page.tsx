@@ -153,6 +153,7 @@ function CreateTaskPage() {
           icon={Wallet}
           title="Connect a wallet to create a task"
           description="The task budget is escrowed in USDC on Arc testnet and requires wallet approval."
+          headingLevel="h1"
         />
       </div>
     );

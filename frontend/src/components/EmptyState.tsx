@@ -8,6 +8,7 @@ type EmptyStateProps = {
   description: string;
   action?: ReactNode;
   tone?: "neutral" | "error";
+  headingLevel?: "h1" | "h2";
 };
 
 export function EmptyState({
@@ -16,7 +17,10 @@ export function EmptyState({
   description,
   action,
   tone = "neutral",
+  headingLevel = "h2",
 }: EmptyStateProps) {
+  const Heading = headingLevel;
+
   return (
     <div
       className={cn(
@@ -32,7 +36,9 @@ export function EmptyState({
       >
         <Icon className="size-5" aria-hidden="true" />
       </div>
-      <h2 className="text-xl font-semibold text-foreground">{title}</h2>
+      <Heading className="text-xl font-semibold text-foreground">
+        {title}
+      </Heading>
       <p className="mt-2 max-w-lg text-sm leading-6 text-muted-foreground">
         {description}
       </p>

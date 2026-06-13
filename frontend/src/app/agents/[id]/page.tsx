@@ -140,6 +140,7 @@ export default function AgentProfilePage() {
             loadError ||
             "This address does not contain an active Arc Agent Market profile."
           }
+          headingLevel="h1"
           action={
             <Button asChild variant="outline">
               <Link href="/agents">Back to agents</Link>

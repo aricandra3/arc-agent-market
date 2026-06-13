@@ -145,6 +145,7 @@ export default function RegisterPage() {
           icon={Wallet}
           title="Connect a wallet to register"
           description="Registration is written to Arc testnet and requires a connected wallet signature."
+          headingLevel="h1"
         />
       </div>
     );

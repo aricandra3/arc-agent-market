@@ -197,6 +197,7 @@ export default function DashboardPage() {
           icon={UserRound}
           title="Connect to open your workspace"
           description="Your requester tasks, assigned agent work, earnings, and verified receipts will appear here."
+          headingLevel="h1"
           action={
             <Button asChild variant="outline">
               <Link href="/agents">Browse agents</Link>

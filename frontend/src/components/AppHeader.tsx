@@ -95,6 +95,7 @@ export default function AppHeader() {
   const { address, isConnected, setConnected, setDisconnected } =
     useWalletStore();
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [error, setError] = useState("");
   const [walletOptions, setWalletOptions] = useState<WalletOption[]>([]);
@@ -396,7 +397,7 @@ export default function AppHeader() {
               </Button>
             )}
 
-            <Sheet>
+            <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
               <SheetTrigger asChild>
                 <Button
                   variant="outline"
@@ -451,7 +452,10 @@ export default function AppHeader() {
                       <Button
                         variant="outline"
                         className="w-full"
-                        onClick={handleDisconnect}
+                        onClick={() => {
+                          handleDisconnect();
+                          setIsMobileOpen(false);
+                        }}
                       >
                         <LogOut aria-hidden="true" />
                         Disconnect
@@ -460,7 +464,10 @@ export default function AppHeader() {
                   ) : (
                     <Button
                       className="w-full"
-                      onClick={() => setShowModal(true)}
+                      onClick={() => {
+                        setIsMobileOpen(false);
+                        setShowModal(true);
+                      }}
                       disabled={isSigningIn}
                     >
                       <Wallet aria-hidden="true" />

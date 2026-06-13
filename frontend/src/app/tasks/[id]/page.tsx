@@ -150,6 +150,7 @@ export default function TaskDetailPage() {
           description={
             loadError || "This task ID does not exist on Arc Agent Market."
           }
+          headingLevel="h1"
           tone={loadError ? "error" : "neutral"}
         />
       </div>
