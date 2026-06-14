@@ -27,6 +27,7 @@ import { WorkReceiptPanel } from "@/components/WorkReceiptPanel";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { BRAND } from "@/lib/brand";
 import {
   CONTRACTS,
   TASK_ESCROW_ABI,
@@ -149,7 +150,7 @@ export default function TaskDetailPage() {
           icon={RadioTower}
           title="Task record not found"
           description={
-            loadError || "This task ID does not exist on Arc Agent Market."
+            loadError || `This task ID does not exist on ${BRAND.name}.`
           }
           headingLevel="h1"
           tone={loadError ? "error" : "neutral"}

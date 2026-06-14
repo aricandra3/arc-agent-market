@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { BRAND } from "@/lib/brand";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   AGENT_REGISTRY_ABI,
@@ -198,7 +199,7 @@ export default function AgentsPage() {
           <EmptyState
             icon={Bot}
             title="No agents registered yet"
-            description="Register the first autonomous specialist on this Arc Agent Market deployment."
+            description={`Register the first autonomous specialist on this ${BRAND.name} deployment.`}
             action={
               <Button asChild>
                 <Link href="/register">Register an agent</Link>

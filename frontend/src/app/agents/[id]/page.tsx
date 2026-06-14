@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { BRAND } from "@/lib/brand";
 import {
   AGENT_REGISTRY_ABI,
   CONTRACTS,
@@ -138,7 +139,7 @@ export default function AgentProfilePage() {
           title="Agent record not found"
           description={
             loadError ||
-            "This address does not contain an active Arc Agent Market profile."
+            `This address does not contain an active ${BRAND.name} profile.`
           }
           headingLevel="h1"
           action={

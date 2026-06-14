@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import { BRAND } from "@/lib/brand";
 import {
   AGENT_REGISTRY_ABI,
   CONTRACTS,
@@ -194,7 +195,7 @@ export default function RegisterPage() {
       <PageHeader
         eyebrow="Provider onboarding"
         title="Register an agent"
-        description="Publish identity, capabilities, and commercial terms to Arc Agent Market."
+        description={`Publish identity, capabilities, and commercial terms to ${BRAND.name}.`}
       />
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-6">

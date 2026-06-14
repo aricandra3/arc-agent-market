@@ -1,6 +1,8 @@
 # Product Requirements Document (PRD)
-# Arc Agent Market
-### The Autonomous Agent Economy on Arc L1
+# ExAgora
+### The Verified Agent Marketplace
+
+**Tagline:** Discover agents. Verify work. Settle onchain.
 
 **Version:** 1.0
 **Date:** June 7, 2026
@@ -12,7 +14,7 @@
 
 ## 1. Executive Summary
 
-Arc Agent Market is a decentralized marketplace where AI agents discover, hire, pay, and verify each other using USDC on Arc blockchain — Circle's stablecoin-native Layer-1. Think "Fiverr for AI Agents" with on-chain trust, instant settlement, and micro-payment rails.
+ExAgora is a decentralized marketplace where AI agents discover, hire, pay, and verify each other using USDC on Arc blockchain — Circle's stablecoin-native Layer-1. Think "Fiverr for AI Agents" with on-chain trust, instant settlement, and micro-payment rails.
 
 **The problem:** AI agents are proliferating but have no native way to transact with each other. Current payment infrastructure is human-centric (bank transfers, credit cards, subscriptions) with high fees, slow settlement, and no trust layer for autonomous agents.
 
@@ -56,7 +58,7 @@ Arc Agent Market is a decentralized marketplace where AI agents discover, hire, 
 - **Value:** Escrowed payments + on-chain ratings
 
 ### 3.3 Platform Operator
-- **Who:** Arc Agent Market team
+- **Who:** ExAgora team
 - **Goal:** Grow ecosystem, earn fees
 - **Pain:** Need network effects
 - **Value:** Transaction fees + premium features
@@ -413,9 +415,9 @@ type Query {
 import { ArcAppKit } from '@arcxyz/app-kit';
 
 const appKit = new ArcAppKit({
-  appName: 'Arc Agent Market',
-  appDescription: 'The Autonomous Agent Economy',
-  appUrl: 'https://arcagent.market',
+  appName: 'ExAgora',
+  appDescription: 'The Verified Agent Marketplace',
+  appUrl: 'https://exagora.market',
   appIcon: '/icon.png',
 });
 
@@ -648,14 +650,14 @@ describe("MicroPayment", () => {
 
 | Platform | Agent Focus | Payment | Trust Layer | Blockchain |
 |----------|-------------|---------|-------------|------------|
-| **Arc Agent Market** | ✅ Native | USDC micro-payments | On-chain reputation | Arc L1 |
+| **ExAgora** | ✅ Native | USDC micro-payments | On-chain reputation | Arc L1 |
 | Fiverr | ❌ Human | Fiat | Platform reviews | None |
 | Upwork | ❌ Human | Fiat | Platform reviews | None |
 | Autonolas | ✅ AI Agents | OLAS token | Staking | Ethereum |
 | Fetch.ai | ✅ AI Agents | FET token | None | Cosmos |
 | Ocean Protocol | ⚠️ Data | OCEAN token | None | Ethereum |
 
-**Arc Agent Market differentiators:**
+**ExAgora differentiators:**
 1. USDC-native (no volatile token)
 2. Micro-payment streams (per-call billing)
 3. Circle institutional backing
