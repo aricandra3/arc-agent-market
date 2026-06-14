@@ -1,7 +1,14 @@
-'use client';
+"use client";
 
-import { formatUSDC, TASK_STATUS } from '@/lib/contracts';
-import Link from 'next/link';
+import Link from "next/link";
+import { ArrowRight, CircleDollarSign, Clock3, UserRound } from "lucide-react";
+import { StatusBadge } from "@/components/StatusBadge";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  formatDate,
+  formatUSDC,
+  shortAddress,
+} from "@/lib/contracts";
 
 interface TaskCardProps {
   id: number;
@@ -21,48 +28,53 @@ export default function TaskCard({
   budget,
   description,
   status,
+  deadline,
 }: TaskCardProps) {
-  const statusColor = [
-    'bg-blue-500/20 text-blue-400',    // Open
-    'bg-yellow-500/20 text-yellow-400', // Accepted
-    'bg-purple-500/20 text-purple-400', // InProgress
-    'bg-orange-500/20 text-orange-400', // Submitted
-    'bg-green-500/20 text-green-400',   // Approved
-    'bg-green-500/20 text-green-400',   // Paid
-    'bg-red-500/20 text-red-400',       // Disputed
-    'bg-green-500/20 text-green-400',   // Resolved
-    'bg-slate-500/20 text-slate-400',   // Cancelled
-    'bg-slate-500/20 text-slate-400',   // Expired
-  ][status] || 'bg-slate-500/20 text-slate-400';
-
   return (
-    <Link href={`/tasks/${id}`}>
-      <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6 hover:border-blue-500/50 transition-all">
-        <div className="flex items-start justify-between mb-3">
-          <h3 className="text-lg font-semibold text-white line-clamp-1">Task #{id}</h3>
-          <span className={`px-2 py-1 text-xs rounded-full ${statusColor}`}>
-            {TASK_STATUS[status]}
-          </span>
-        </div>
-        
-        <p className="text-sm text-slate-400 mb-4 line-clamp-2">{description}</p>
-        
-        <div className="flex items-center justify-between text-sm">
-          <div className="flex items-center gap-4">
-            <span className="text-slate-500">
-              By {requester.slice(0, 6)}...{requester.slice(-4)}
-            </span>
-            {provider !== '0x0000000000000000000000000000000000000000' && (
-              <span className="text-slate-500">
-                → {provider.slice(0, 6)}...{provider.slice(-4)}
-              </span>
-            )}
+    <Link
+      href={`/tasks/${id}`}
+      className="group block h-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <Card className="h-full min-h-64 gap-0 border-border/75 bg-[#0b192d] py-0 shadow-[3px_3px_0_#040c18] transition-[transform,border-color,box-shadow] group-hover:-translate-y-0.5 group-hover:border-primary/55 group-hover:shadow-[5px_5px_0_#040c18]">
+        <CardContent className="flex h-full flex-col px-5 py-5">
+          <div className="flex min-h-10 items-start justify-between gap-3">
+            <div>
+              <p className="font-mono text-[10px] uppercase text-[#9fc1df]">
+                Task record
+              </p>
+              <h3 className="mt-1 text-lg font-semibold text-foreground">
+                Task #{id}
+              </h3>
+            </div>
+            <StatusBadge kind="task" status={status} />
           </div>
-          <span className="text-blue-400 font-semibold">
-            ${formatUSDC(budget)} USDC
-          </span>
-        </div>
-      </div>
+
+          <p className="mt-4 line-clamp-2 min-h-11 text-sm leading-6 text-muted-foreground">
+            {description}
+          </p>
+
+          <div className="mt-5 grid gap-3 text-xs text-muted-foreground sm:grid-cols-2">
+            <span className="flex items-center gap-2">
+              <UserRound className="size-3.5" aria-hidden="true" />
+              {shortAddress(requester)}
+              <ArrowRight className="size-3" aria-hidden="true" />
+              {shortAddress(provider)}
+            </span>
+            <span className="flex items-center gap-2 sm:justify-end">
+              <Clock3 className="size-3.5" aria-hidden="true" />
+              Due {formatDate(deadline)}
+            </span>
+          </div>
+
+          <div className="mt-auto flex items-end justify-between gap-4 border-t border-border/55 pt-4">
+            <span className="text-xs text-muted-foreground">Escrow budget</span>
+            <span className="flex items-center gap-1 font-mono text-sm font-semibold text-primary">
+              <CircleDollarSign className="size-4" aria-hidden="true" />
+              {formatUSDC(budget)} USDC
+            </span>
+          </div>
+        </CardContent>
+      </Card>
     </Link>
   );
 }

@@ -1,220 +1,379 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useWalletStore } from '@/lib/store';
-import { sendTransaction, CONTRACTS, AGENT_REGISTRY_ABI } from '@/lib/contracts';
-import { encodeFunctionData } from 'viem';
-import Link from 'next/link';
+import Link from "next/link";
+import { useState } from "react";
+import {
+  Check,
+  CircleCheck,
+  CircleDollarSign,
+  ExternalLink,
+  RadioTower,
+  Wallet,
+} from "lucide-react";
+import { encodeFunctionData } from "viem";
+import { toast } from "sonner";
+import { EmptyState } from "@/components/EmptyState";
+import { PageHeader } from "@/components/PageHeader";
+import {
+  TransactionState,
+  type TransactionPhase,
+} from "@/components/TransactionState";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  AGENT_REGISTRY_ABI,
+  CONTRACTS,
+  isUserRejectedError,
+  sendTransaction,
+} from "@/lib/contracts";
+import { useWalletStore } from "@/lib/store";
+import { cn } from "@/lib/utils";
 
 const SKILL_OPTIONS = [
-  'web-dev', 'frontend', 'backend', 'fullstack', 'mobile', 'design',
-  'copywriting', 'data-analysis', 'machine-learning', 'devops',
-  'blockchain', 'smart-contracts', 'security', 'testing', 'api',
-  'content-creation', 'translation', 'research', 'automation', 'chatbot',
+  "web-dev",
+  "frontend",
+  "backend",
+  "fullstack",
+  "mobile",
+  "design",
+  "copywriting",
+  "data-analysis",
+  "machine-learning",
+  "devops",
+  "blockchain",
+  "smart-contracts",
+  "security",
+  "testing",
+  "api",
+  "content-creation",
+  "translation",
+  "research",
+  "automation",
+  "chatbot",
 ];
 
 export default function RegisterPage() {
   const { address, isConnected } = useWalletStore();
   const [form, setForm] = useState({
-    name: '',
-    description: '',
+    name: "",
+    description: "",
     skills: [] as string[],
-    ratePerTask: '5.00',
-    ratePerCall: '0.01',
+    ratePerTask: "5.00",
+    ratePerCall: "0.01",
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [txHash, setTxHash] = useState('');
-  const [success, setSuccess] = useState(false);
-  const [error, setError] = useState('');
+  const [phase, setPhase] = useState<TransactionPhase>("idle");
+  const [txHash, setTxHash] = useState("");
+  const [error, setError] = useState("");
 
   const toggleSkill = (skill: string) => {
-    setForm(prev => ({
-      ...prev,
-      skills: prev.skills.includes(skill)
-        ? prev.skills.filter(s => s !== skill)
-        : [...prev.skills, skill],
+    setForm((current) => ({
+      ...current,
+      skills: current.skills.includes(skill)
+        ? current.skills.filter((item) => item !== skill)
+        : [...current.skills, skill],
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     if (!isConnected) return;
-    if (form.skills.length === 0) return setError('Select at least one skill');
-    if (!form.name.trim()) return setError('Name is required');
+    if (!form.name.trim()) {
+      setError("Agent name is required.");
+      return;
+    }
+    if (form.skills.length === 0) {
+      setError("Select at least one capability.");
+      return;
+    }
 
-    setIsSubmitting(true);
-    setError('');
+    const taskRate = Number(form.ratePerTask);
+    const callRate = Number(form.ratePerCall);
+    if (!Number.isFinite(taskRate) || taskRate <= 0) {
+      setError("Task rate must be greater than zero.");
+      return;
+    }
+    if (!Number.isFinite(callRate) || callRate <= 0) {
+      setError("API call rate must be greater than zero.");
+      return;
+    }
+
+    setPhase("signing");
+    setError("");
+    setTxHash("");
 
     try {
-      const ratePerTaskWei = BigInt(Math.floor(parseFloat(form.ratePerTask) * 1_000_000));
-      const ratePerCallWei = BigInt(Math.floor(parseFloat(form.ratePerCall) * 1_000_000));
-
       const data = encodeFunctionData({
         abi: AGENT_REGISTRY_ABI,
-        functionName: 'registerAgent',
+        functionName: "registerAgent",
         args: [
-          form.name,
-          form.description,
+          form.name.trim(),
+          form.description.trim(),
           form.skills,
-          ratePerTaskWei,
-          ratePerCallWei,
-          '', // metadataURI
+          BigInt(Math.floor(taskRate * 1_000_000)),
+          BigInt(Math.floor(callRate * 1_000_000)),
+          "",
         ],
       });
 
       const tx = await sendTransaction(CONTRACTS.AGENT_REGISTRY, data);
       setTxHash(tx);
-      setSuccess(true);
-    } catch (err: unknown) {
-      console.error('Registration failed:', err);
-      setError(err instanceof Error ? err.message : 'Registration failed');
-    } finally {
-      setIsSubmitting(false);
+      setPhase("submitted");
+      toast.success("Agent registration submitted", {
+        description: "Track the transaction on Arcscan.",
+      });
+    } catch (submitError: unknown) {
+      const message = isUserRejectedError(submitError)
+        ? "The wallet signature was cancelled."
+        : submitError instanceof Error
+          ? submitError.message
+          : "Registration failed.";
+      console.error("Registration failed:", submitError);
+      setError(message);
+      setPhase("failed");
+      toast.error("Registration failed", { description: message });
     }
   };
 
   if (!isConnected) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-20 text-center">
-        <h1 className="text-4xl font-bold text-white mb-4">Register Agent</h1>
-        <p className="text-slate-400 mb-8">Connect your wallet first to register as an agent.</p>
+      <div className="app-container py-12">
+        <EmptyState
+          icon={Wallet}
+          title="Connect a wallet to register"
+          description="Registration is written to Arc testnet and requires a connected wallet signature."
+          headingLevel="h1"
+        />
       </div>
     );
   }
 
-  if (success) {
+  if (txHash) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-20 text-center">
-        <div className="bg-green-500/10 border border-green-500/30 rounded-2xl p-8">
-          <div className="text-6xl mb-4">🎉</div>
-          <h1 className="text-3xl font-bold text-white mb-4">Agent Registered!</h1>
-          <p className="text-slate-400 mb-6">
-            <strong className="text-white">{form.name}</strong> is now live on Arc Testnet.
+      <div className="app-container max-w-3xl py-12">
+        <div className="brutal-surface p-7 sm:p-10">
+          <div className="flex size-11 items-center justify-center border border-[#6eb8ad]/60 bg-[#6eb8ad]/10 text-[#9cd4cc]">
+            <CircleCheck className="size-5" aria-hidden="true" />
+          </div>
+          <p className="mt-7 font-mono text-[11px] uppercase text-[#9fc1df]">
+            Registration submitted
           </p>
-          {txHash && (
-            <a
-              href={`https://testnet.arcscan.app/tx/${txHash}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-400 hover:text-blue-300 text-sm block mb-6"
-            >
-              View on Explorer →
-            </a>
-          )}
-          <div className="flex gap-4 justify-center">
-            <Link href={`/agents/${address}`} className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold">
-              View My Profile
-            </Link>
-            <Link href="/agents" className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg">
-              Browse Agents
-            </Link>
+          <h1 className="mt-2 text-3xl font-semibold text-foreground">
+            {form.name} is entering the market.
+          </h1>
+          <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
+            Arc testnet is processing the registration. The profile becomes
+            readable after the transaction is confirmed.
+          </p>
+          <TransactionState
+            phase="submitted"
+            hash={txHash}
+            message="Agent registration transaction"
+          />
+          <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+            <Button asChild>
+              <Link href={`/agents/${address}`}>View profile</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href="/agents">Browse agents</Link>
+            </Button>
           </div>
         </div>
       </div>
     );
   }
+
+  const isBusy = phase === "signing";
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <h1 className="text-4xl font-bold text-white mb-2">Register Agent</h1>
-      <p className="text-slate-400 mb-8">List your AI agent on the marketplace. This transaction is free (only gas fee ~$0.01).</p>
+    <div className="app-container max-w-4xl py-10 sm:py-14">
+      <PageHeader
+        eyebrow="Provider onboarding"
+        title="Register an agent"
+        description="Publish identity, capabilities, and commercial terms to Arc Agent Market."
+      />
 
-      <form onSubmit={handleSubmit} className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-8 space-y-6">
-        {/* Name */}
-        <div>
-          <label className="block text-sm text-slate-400 mb-2">Agent Name *</label>
-          <input
-            type="text"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="e.g. WebDev Agent, Data Analyzer, CopyBot"
-            required
-            className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:border-blue-500"
-          />
-        </div>
+      <form onSubmit={handleSubmit} className="mt-8 space-y-6">
+        <section className="brutal-surface p-5 sm:p-7">
+          <SectionTitle number="01" title="Identity" />
+          <div className="mt-6 grid gap-5">
+            <Field label="Agent name" htmlFor="agent-name" required>
+              <Input
+                id="agent-name"
+                value={form.name}
+                onChange={(event) =>
+                  setForm({ ...form, name: event.target.value })
+                }
+                placeholder="Protocol Auditor"
+                required
+              />
+            </Field>
+            <Field label="Description" htmlFor="agent-description">
+              <Textarea
+                id="agent-description"
+                value={form.description}
+                onChange={(event) =>
+                  setForm({ ...form, description: event.target.value })
+                }
+                placeholder="What does this agent deliver, and what evidence can buyers inspect?"
+                rows={4}
+              />
+            </Field>
+          </div>
+        </section>
 
-        {/* Description */}
-        <div>
-          <label className="block text-sm text-slate-400 mb-2">Description</label>
-          <textarea
-            value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
-            placeholder="What does your agent do? What makes it unique?"
-            rows={3}
-            className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:border-blue-500"
-          />
-        </div>
-
-        {/* Skills */}
-        <div>
-          <label className="block text-sm text-slate-400 mb-2">Skills * (select at least 1)</label>
-          <div className="flex flex-wrap gap-2">
-            {SKILL_OPTIONS.map((skill) => (
-              <button
-                key={skill}
-                type="button"
-                onClick={() => toggleSkill(skill)}
-                className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                  form.skills.includes(skill)
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                }`}
-              >
-                {skill}
-              </button>
-            ))}
+        <section className="brutal-surface p-5 sm:p-7">
+          <SectionTitle number="02" title="Capabilities" />
+          <p className="mt-3 text-sm text-muted-foreground">
+            Select at least one capability buyers can use for discovery.
+          </p>
+          <div className="mt-5 flex flex-wrap gap-2">
+            {SKILL_OPTIONS.map((skill) => {
+              const selected = form.skills.includes(skill);
+              return (
+                <button
+                  key={skill}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => toggleSkill(skill)}
+                  className={cn(
+                    "inline-flex min-h-9 items-center gap-1.5 rounded-[3px] border px-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    selected
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-secondary text-muted-foreground hover:bg-accent hover:text-foreground",
+                  )}
+                >
+                  {selected && <Check className="size-3.5" aria-hidden="true" />}
+                  {skill}
+                </button>
+              );
+            })}
           </div>
           {form.skills.length > 0 && (
-            <p className="text-xs text-slate-500 mt-2">Selected: {form.skills.join(', ')}</p>
+            <p className="mt-4 font-mono text-xs text-muted-foreground">
+              {form.skills.length} selected
+            </p>
           )}
-        </div>
+        </section>
 
-        {/* Rates */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm text-slate-400 mb-2">Rate per Task (USDC)</label>
-            <input
-              type="number"
-              value={form.ratePerTask}
-              onChange={(e) => setForm({ ...form, ratePerTask: e.target.value })}
-              step="0.01"
-              min="0.01"
-              className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:border-blue-500"
-            />
+        <section className="brutal-surface p-5 sm:p-7">
+          <SectionTitle number="03" title="Pricing" />
+          <div className="mt-6 grid gap-5 sm:grid-cols-2">
+            <Field label="Rate per task (USDC)" htmlFor="rate-task">
+              <Input
+                id="rate-task"
+                type="number"
+                value={form.ratePerTask}
+                onChange={(event) =>
+                  setForm({ ...form, ratePerTask: event.target.value })
+                }
+                step="0.01"
+                min="0.01"
+                inputMode="decimal"
+              />
+            </Field>
+            <Field label="Rate per API call (USDC)" htmlFor="rate-call">
+              <Input
+                id="rate-call"
+                type="number"
+                value={form.ratePerCall}
+                onChange={(event) =>
+                  setForm({ ...form, ratePerCall: event.target.value })
+                }
+                step="0.001"
+                min="0.001"
+                inputMode="decimal"
+              />
+            </Field>
           </div>
-          <div>
-            <label className="block text-sm text-slate-400 mb-2">Rate per API Call (USDC)</label>
-            <input
-              type="number"
-              value={form.ratePerCall}
-              onChange={(e) => setForm({ ...form, ratePerCall: e.target.value })}
-              step="0.001"
-              min="0.001"
-              className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:border-blue-500"
-            />
+        </section>
+
+        <section className="brutal-surface p-5 sm:p-7">
+          <SectionTitle number="04" title="Wallet summary" />
+          <div className="mt-6 grid gap-4 sm:grid-cols-2">
+            <div>
+              <p className="text-xs text-muted-foreground">Network</p>
+              <p className="mt-2 flex items-center gap-2 font-mono text-sm text-foreground">
+                <RadioTower
+                  className="size-3.5 text-[#6eb8ad]"
+                  aria-hidden="true"
+                />
+                Arc Testnet
+              </p>
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Registering wallet</p>
+              <p className="mt-2 break-all font-mono text-xs leading-5 text-foreground">
+                {address}
+              </p>
+            </div>
           </div>
-        </div>
-
-        {/* Wallet info */}
-        <div className="bg-slate-900/50 rounded-lg p-4">
-          <div className="text-xs text-slate-500 mb-1">Registering as</div>
-          <div className="text-sm font-mono text-slate-300">{address}</div>
-        </div>
-
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
-            <p className="text-sm text-red-400">{error}</p>
-          </div>
-        )}
-
-        <button
-          type="submit"
-          disabled={isSubmitting || form.skills.length === 0 || !form.name.trim()}
-          className="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-600 text-white rounded-lg font-semibold transition-colors"
-        >
-          {isSubmitting ? 'Signing Transaction...' : 'Register Agent on Arc Testnet'}
-        </button>
+          <Separator className="my-6 bg-border/60" />
+          {error && (
+            <p className="mb-4 text-sm text-[#efa2a7]" role="alert">
+              {error}
+            </p>
+          )}
+          <TransactionState phase={phase} message={error || undefined} />
+          <Button
+            type="submit"
+            size="lg"
+            className="mt-5 w-full"
+            disabled={isBusy || form.skills.length === 0 || !form.name.trim()}
+          >
+            <CircleDollarSign aria-hidden="true" />
+            {isBusy ? "Sign registration in wallet" : "Register on Arc Testnet"}
+          </Button>
+          <a
+            href="https://testnet.arcscan.app"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-4 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary"
+          >
+            View Arc Testnet explorer
+            <ExternalLink className="size-3" aria-hidden="true" />
+          </a>
+        </section>
       </form>
+    </div>
+  );
+}
+
+function SectionTitle({ number, title }: { number: string; title: string }) {
+  return (
+    <div className="flex items-center gap-3">
+      <Badge
+        variant="outline"
+        className="border-border bg-secondary font-mono text-[#9fc1df]"
+      >
+        {number}
+      </Badge>
+      <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  htmlFor,
+  required = false,
+  children,
+}: {
+  label: string;
+  htmlFor: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={htmlFor}>
+        {label}
+        {required && <span className="text-[#efa2a7]"> *</span>}
+      </Label>
+      {children}
     </div>
   );
 }
