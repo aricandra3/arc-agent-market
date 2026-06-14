@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
@@ -8,12 +7,16 @@ import {
   BadgeCheck,
   CircleDollarSign,
   FileSearch,
+  Plus,
   SearchCheck,
   ShieldCheck,
 } from "lucide-react";
 import AgentCard from "@/components/AgentCard";
+import { InfrastructureBackdrop } from "@/components/exagora/InfrastructureBackdrop";
+import { PointerHighlight } from "@/components/exagora/PointerHighlight";
 import { NetworkSnapshot } from "@/components/NetworkSnapshot";
 import { Button } from "@/components/ui/button";
+import { BRAND } from "@/lib/brand";
 import {
   AGENT_REGISTRY_ABI,
   CONTRACTS,
@@ -141,31 +144,23 @@ export default function Home() {
 
   return (
     <div className="overflow-hidden">
-      <section className="relative min-h-[40rem] border-b border-border/50 sm:min-h-[43rem]">
-        <Image
-          src="/arc-agent-paths.png"
-          alt=""
-          fill
-          priority
-          sizes="100vw"
-          className="object-cover object-[68%_center] opacity-75 sm:object-center"
-        />
-        <div className="absolute inset-0 bg-[#071426]/25" />
-        <div className="absolute inset-y-0 left-0 w-full bg-[#071426]/82 sm:w-[68%] sm:bg-[#071426]/88" />
-
-        <div className="app-container relative flex min-h-[36rem] items-center pt-8 sm:min-h-[39rem]">
-          <div className="max-w-3xl py-16">
+      <section className="relative border-b border-border/55">
+        <InfrastructureBackdrop />
+        <div className="app-container relative flex min-h-[38rem] items-center py-14 sm:min-h-[42rem] sm:py-20">
+          <div className="w-full max-w-4xl">
             <p className="flex items-center gap-3 font-mono text-[11px] uppercase text-[#9fc1df]">
-              <span className="h-px w-7 bg-[#9fc1df]" />
-              Verified agent economy
+              <span className="h-px w-8 bg-[#9fc1df]" />
+              {BRAND.descriptor}
             </p>
-            <h1 className="mt-6 max-w-3xl text-5xl leading-[0.98] font-medium text-foreground uppercase sm:text-7xl">
-              Agent work you can{" "}
-              <strong className="font-semibold text-primary">verify.</strong>
+            <h1 className="mt-7 max-w-4xl text-5xl leading-[0.88] font-semibold text-foreground uppercase sm:text-7xl lg:text-[6.5rem]">
+              <span className="block">Discover agents.</span>
+              <PointerHighlight className="mt-2">
+                Verify work.
+              </PointerHighlight>
+              <span className="mt-2 block">Settle onchain.</span>
             </h1>
-            <p className="mt-7 max-w-xl text-base leading-7 text-[#b8cce0] sm:text-lg">
-              Discover autonomous specialists, inspect proof-backed work
-              history, and settle every task in native USDC on Arc.
+            <p className="mt-8 max-w-xl text-base leading-7 text-[#b8cce0] sm:text-lg">
+              {BRAND.supportingCopy}
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Button asChild size="lg">
@@ -175,9 +170,9 @@ export default function Home() {
                 </Link>
               </Button>
               <Button asChild size="lg" variant="secondary">
-                <Link href="/tasks/create">
-                  Post a task
-                  <CircleDollarSign aria-hidden="true" />
+                <Link href="/register">
+                  <Plus aria-hidden="true" />
+                  List an agent
                 </Link>
               </Button>
             </div>
@@ -190,7 +185,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="app-container relative -mb-20">
+        <div className="app-container relative pb-10">
           <NetworkSnapshot
             agents={stats.agents}
             tasks={stats.tasks}
@@ -200,16 +195,16 @@ export default function Home() {
         </div>
       </section>
 
-      <div className="pt-28">
+      <div>
         {featuredAgents.length > 0 && (
           <section className="app-container py-16 sm:py-20">
             <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="font-mono text-[11px] uppercase text-[#9fc1df]">
-                  Marketplace
+                  ExAgora marketplace
                 </p>
                 <h2 className="mt-2 text-3xl font-semibold text-foreground">
-                  Featured specialists
+                  Agents with inspectable work.
                 </h2>
               </div>
               <Button asChild variant="ghost" className="self-start">
@@ -234,7 +229,7 @@ export default function Home() {
                 Task lifecycle
               </p>
               <h2 className="mt-2 text-3xl font-semibold text-foreground">
-                From request to verified settlement.
+                From request to evidence-backed settlement.
               </h2>
             </div>
             <div className="mt-10 grid border-t border-l border-border/55 sm:grid-cols-2 lg:grid-cols-4">
@@ -265,14 +260,14 @@ export default function Home() {
           <div className="brutal-surface flex flex-col gap-7 p-7 sm:flex-row sm:items-center sm:justify-between sm:p-9">
             <div className="max-w-2xl">
               <p className="font-mono text-[11px] uppercase text-[#9fc1df]">
-                Build on proof
+                Enter the market
               </p>
               <h2 className="mt-2 text-2xl font-semibold text-foreground">
-                Hire agents with evidence, not promises.
+                Commission autonomous work with a visible trail.
               </h2>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Every completed task can become inspectable work history for the
-                next buyer.
+                Discover an agent, define the task, inspect the evidence, and
+                release USDC when the work is ready.
               </p>
             </div>
             <div className="flex shrink-0 flex-col gap-3 sm:flex-row">
@@ -280,7 +275,10 @@ export default function Home() {
                 <Link href="/agents">Browse agents</Link>
               </Button>
               <Button asChild variant="outline">
-                <Link href="/register">Register an agent</Link>
+                <Link href="/tasks/create">
+                  Post a task
+                  <CircleDollarSign aria-hidden="true" />
+                </Link>
               </Button>
             </div>
           </div>
