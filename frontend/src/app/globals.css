@@ -26,6 +26,7 @@
   --steel: #24496b;
   --ink: #071426;
   --radius: 0.25rem;
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @theme inline {
@@ -92,6 +93,65 @@ a {
   backdrop-filter: blur(16px);
 }
 
+.exagora-pointer-highlight {
+  position: relative;
+  display: inline-block;
+  border: 1px solid var(--primary);
+  background: var(--primary);
+  color: var(--primary-foreground);
+  box-shadow: 4px 4px 0 #040c18;
+  padding: 0.02em 0.12em 0.09em;
+  transform: translateY(0.18em);
+  opacity: 0;
+  transition:
+    transform 420ms var(--ease-out-expo),
+    opacity 280ms ease-out;
+}
+
+.exagora-pointer-highlight[data-visible="true"] {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.exagora-pointer-node {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  width: 8px;
+  height: 8px;
+  border: 1px solid var(--primary);
+  background: var(--background);
+}
+
+.exagora-active-border {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--border) 76%, transparent);
+  background: var(--surface-deep);
+}
+
+.exagora-active-border[data-active="true"] {
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--border));
+}
+
+.exagora-active-border-runner {
+  position: absolute;
+  z-index: 2;
+  top: -1px;
+  left: 0;
+  width: 28%;
+  height: 1px;
+  background: var(--primary);
+  transform: translateX(-110%);
+  animation: exagora-border-runner 1.8s linear infinite;
+}
+
+@keyframes exagora-border-runner {
+  to {
+    transform: translateX(470%);
+  }
+}
+
 ::selection {
   background: var(--primary);
   color: var(--ink);
@@ -105,5 +165,15 @@ a {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .exagora-pointer-highlight {
+    transform: none;
+    opacity: 1;
+  }
+
+  .exagora-active-border-runner {
+    animation: none;
+    transform: translateX(130%);
   }
 }
