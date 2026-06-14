@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import AgentCard from "@/components/AgentCard";
 import { InfrastructureBackdrop } from "@/components/exagora/InfrastructureBackdrop";
+import { MarketplaceHoverGrid } from "@/components/exagora/MarketplaceHoverGrid";
 import { PointerHighlight } from "@/components/exagora/PointerHighlight";
 import { NetworkSnapshot } from "@/components/NetworkSnapshot";
 import { Button } from "@/components/ui/button";
@@ -214,11 +215,11 @@ export default function Home() {
                 </Link>
               </Button>
             </div>
-            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+            <MarketplaceHoverGrid className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
               {featuredAgents.map((agent) => (
                 <AgentCard key={agent.address} {...agent} />
               ))}
-            </div>
+            </MarketplaceHoverGrid>
           </section>
         )}
 

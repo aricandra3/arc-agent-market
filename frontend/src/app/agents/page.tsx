@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Bot, RadioTower, Search, SlidersHorizontal } from "lucide-react";
 import AgentCard from "@/components/AgentCard";
 import { EmptyState } from "@/components/EmptyState";
+import { MarketplaceHoverGrid } from "@/components/exagora/MarketplaceHoverGrid";
 import { PageHeader } from "@/components/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -216,11 +217,11 @@ export default function AgentsPage() {
             }
           />
         ) : (
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+          <MarketplaceHoverGrid className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
             {filtered.map((agent) => (
               <AgentCard key={agent.address} {...agent} />
             ))}
-          </div>
+          </MarketplaceHoverGrid>
         )}
       </div>
     </div>

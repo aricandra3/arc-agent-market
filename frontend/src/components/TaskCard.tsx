@@ -35,7 +35,10 @@ export default function TaskCard({
       href={`/tasks/${id}`}
       className="group block h-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <Card className="h-full min-h-64 gap-0 border-border/75 bg-[#0b192d] py-0 shadow-[3px_3px_0_#040c18] transition-[transform,border-color,box-shadow] group-hover:-translate-y-0.5 group-hover:border-primary/55 group-hover:shadow-[5px_5px_0_#040c18]">
+      <Card
+        data-market-card
+        className="h-full min-h-64 gap-0 border-border/75 bg-[#0b192d] py-0 shadow-[3px_3px_0_#040c18] transition-[transform,border-color] duration-150 ease-out group-hover:-translate-y-0.5 group-hover:border-primary/55"
+      >
         <CardContent className="flex h-full flex-col px-5 py-5">
           <div className="flex min-h-10 items-start justify-between gap-3">
             <div>

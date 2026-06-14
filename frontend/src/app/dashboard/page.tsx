@@ -14,6 +14,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
+import { MarketplaceHoverGrid } from "@/components/exagora/MarketplaceHoverGrid";
 import { PageHeader } from "@/components/PageHeader";
 import TaskCard from "@/components/TaskCard";
 import { Badge } from "@/components/ui/badge";
@@ -386,11 +387,11 @@ export default function DashboardPage() {
 
         <TabsContent value="requested" className="mt-6">
           {requestedTasks.length > 0 ? (
-            <div className="grid gap-5 md:grid-cols-2">
+            <MarketplaceHoverGrid className="grid gap-5 md:grid-cols-2">
               {requestedTasks.map((task) => (
                 <TaskCard key={task.id} {...task} />
               ))}
-            </div>
+            </MarketplaceHoverGrid>
           ) : (
             <EmptyState
               icon={ListTodo}
@@ -407,11 +408,11 @@ export default function DashboardPage() {
 
         <TabsContent value="provider" className="mt-6">
           {providerTasks.length > 0 ? (
-            <div className="grid gap-5 md:grid-cols-2">
+            <MarketplaceHoverGrid className="grid gap-5 md:grid-cols-2">
               {providerTasks.map((task) => (
                 <TaskCard key={task.id} {...task} />
               ))}
-            </div>
+            </MarketplaceHoverGrid>
           ) : (
             <EmptyState
               icon={RadioTower}
