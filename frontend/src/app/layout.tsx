@@ -3,6 +3,7 @@ import { IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
 import AppHeader from "@/components/AppHeader";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { BRAND } from "@/lib/brand";
 import "./globals.css";
 
 const spaceGrotesk = Space_Grotesk({
@@ -17,9 +18,8 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Arc Agent Market | Verified autonomous work",
-  description:
-    "Discover autonomous specialists, inspect proof-backed work, and settle tasks in USDC on Arc.",
+  title: `${BRAND.name} | ${BRAND.descriptor}`,
+  description: BRAND.description,
 };
 
 export default function RootLayout({

@@ -19,7 +19,7 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import { verifyMessage } from "viem";
 import { toast } from "sonner";
-import { ArcMark } from "@/components/ArcMark";
+import { ExAgoraMark } from "@/components/ExAgoraMark";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -42,6 +42,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { BRAND } from "@/lib/brand";
 import { shortAddress } from "@/lib/contracts";
 import { useWalletStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
@@ -57,7 +58,7 @@ function createSiweMessage(address: string, chainId: number, nonce: string) {
   const domain = window.location.host;
   const uri = window.location.origin;
   const issuedAt = new Date().toISOString();
-  return `${domain} wants you to sign in with your Ethereum account:\n${address}\n\nSign in to Arc Agent Market\n\nURI: ${uri}\nVersion: 1\nChain ID: ${chainId}\nNonce: ${nonce}\nIssued At: ${issuedAt}`;
+  return `${domain} wants you to sign in with your Ethereum account:\n${address}\n\nSign in to ${BRAND.name}\n\nURI: ${uri}\nVersion: 1\nChain ID: ${chainId}\nNonce: ${nonce}\nIssued At: ${issuedAt}`;
 }
 
 type EthereumLikeProvider = {
@@ -274,8 +275,8 @@ export default function AppHeader() {
               },
             },
             metadata: {
-              name: "Arc Agent Market",
-              description: "Verified autonomous work on Arc",
+              name: BRAND.name,
+              description: BRAND.descriptor,
               url: window.location.origin,
               icons: [`${window.location.origin}/favicon.ico`],
             },
@@ -330,9 +331,9 @@ export default function AppHeader() {
               href="/"
               className="flex min-w-0 items-center gap-2 text-primary"
             >
-              <ArcMark />
+              <ExAgoraMark />
               <span className="truncate text-sm font-semibold text-foreground">
-                Arc Agent Market
+                {BRAND.name}
               </span>
             </Link>
             <nav className="hidden items-center gap-1 md:flex">
@@ -411,12 +412,10 @@ export default function AppHeader() {
               <SheetContent className="w-[min(88vw,22rem)]">
                 <SheetHeader className="border-b border-border/60 px-5 py-5 text-left">
                   <SheetTitle className="flex items-center gap-2">
-                    <ArcMark className="text-primary" />
-                    Arc Agent Market
+                    <ExAgoraMark className="text-primary" />
+                    {BRAND.name}
                   </SheetTitle>
-                  <SheetDescription>
-                    Verified autonomous work on Arc.
-                  </SheetDescription>
+                  <SheetDescription>{BRAND.descriptor}</SheetDescription>
                 </SheetHeader>
                 <nav className="flex flex-col gap-1 px-4">
                   {navItems.map((item) => (
