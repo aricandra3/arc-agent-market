@@ -17,6 +17,7 @@ import {
 import { encodeFunctionData } from "viem";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/EmptyState";
+import { TransactionButton } from "@/components/exagora/TransactionButton";
 import { StatusBadge } from "@/components/StatusBadge";
 import {
   TransactionState,
@@ -257,33 +258,39 @@ export default function TaskDetailPage() {
           <div className="flex flex-col gap-4">
             <div className="flex flex-wrap gap-3">
               {isProvider && task.status === 1 && (
-                <Button
+                <TransactionButton
+                  phase={actionPhase}
                   onClick={() => handleAction("startTask")}
                   disabled={actionPhase === "signing"}
+                  submittedLabel="Start submitted"
                 >
                   <Play aria-hidden="true" />
                   Start task
-                </Button>
+                </TransactionButton>
               )}
               {isRequester && task.status === 3 && (
-                <Button
+                <TransactionButton
+                  phase={actionPhase}
                   onClick={() => handleAction("approveTask")}
                   disabled={actionPhase === "signing"}
+                  submittedLabel="Approval submitted"
                 >
                   <ShieldCheck aria-hidden="true" />
                   Approve & release USDC
-                </Button>
+                </TransactionButton>
               )}
               {isRequester && task.status === 0 && (
-                <Button
+                <TransactionButton
+                  phase={actionPhase}
                   variant="outline"
                   className="border-[#d36c72]/65 text-[#efa2a7] hover:bg-[#d36c72]/10"
                   onClick={() => handleAction("cancelTask")}
                   disabled={actionPhase === "signing"}
+                  submittedLabel="Cancellation submitted"
                 >
                   <Trash2 aria-hidden="true" />
                   Cancel task
-                </Button>
+                </TransactionButton>
               )}
               <Button asChild variant="outline">
                 <a

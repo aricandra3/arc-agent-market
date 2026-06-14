@@ -13,6 +13,7 @@ import {
 import { encodeFunctionData } from "viem";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/EmptyState";
+import { TransactionButton } from "@/components/exagora/TransactionButton";
 import { PageHeader } from "@/components/PageHeader";
 import {
   TransactionState,
@@ -318,15 +319,17 @@ export default function RegisterPage() {
             </p>
           )}
           <TransactionState phase={phase} message={error || undefined} />
-          <Button
+          <TransactionButton
+            phase={phase}
             type="submit"
             size="lg"
             className="mt-5 w-full"
             disabled={isBusy || form.skills.length === 0 || !form.name.trim()}
+            submittedLabel="Registration submitted"
           >
             <CircleDollarSign aria-hidden="true" />
-            {isBusy ? "Sign registration in wallet" : "Register on Arc Testnet"}
-          </Button>
+            Register on Arc Testnet
+          </TransactionButton>
           <a
             href="https://testnet.arcscan.app"
             target="_blank"

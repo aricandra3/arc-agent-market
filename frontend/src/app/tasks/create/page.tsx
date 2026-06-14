@@ -13,10 +13,10 @@ import {
 import { encodeFunctionData, isAddress, parseUnits } from "viem";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/EmptyState";
+import { TransactionButton } from "@/components/exagora/TransactionButton";
 import { PageHeader } from "@/components/PageHeader";
 import { TransactionState } from "@/components/TransactionState";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -343,15 +343,17 @@ function CreateTaskPage() {
             message={error || undefined}
           />
 
-          <Button
+          <TransactionButton
+            phase={transactionPhase}
             type="submit"
             size="lg"
             className="w-full"
             disabled={isBusy || phase === "submitted"}
+            submittedLabel="Task submitted"
           >
             <FilePlus2 aria-hidden="true" />
             {buttonLabel}
-          </Button>
+          </TransactionButton>
         </aside>
       </form>
     </div>
