@@ -26,7 +26,29 @@
   --steel: #24496b;
   --ink: #071426;
   --radius: 0.25rem;
+  --radius-surface: 1.15rem;
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Futuristic glow accents (derived from existing palette, used sparingly) */
+  --glow-cyan: #7fe3d4;
+  --glow-blue: #c7dbf4;
+  --glow-amber: #d4ad6f;
+
+  /* Analogous accent harmony (neighbours of the steel-blue base) */
+  --accent-cyan: #7fe3d4; /* ~168° */
+  --accent-teal: #69c8bf; /* ~176° */
+  --accent-azure: #7bb0ec; /* ~213° */
+  --accent-indigo: #9aa3ee; /* ~243° */
+  /* Complementary secondary (opposite the blue) — muted, low-profile gold */
+  --accent-gold: #d6b079; /* ~33° */
+
+  /* Neo-brutalist hard-shadow primitives */
+  --shadow-ink: #040c18;
+  --shadow-brutal: 4px 4px 0 var(--shadow-ink);
+  --shadow-brutal-sm: 3px 3px 0 var(--shadow-ink);
+  --shadow-brutal-lg: 7px 7px 0 var(--shadow-ink);
+  --shadow-glow: 0 0 0 1px color-mix(in srgb, var(--glow-cyan) 30%, transparent),
+    0 18px 48px -24px color-mix(in srgb, var(--glow-cyan) 55%, transparent);
 }
 
 @theme inline {
@@ -48,8 +70,19 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-glow-cyan: var(--glow-cyan);
+  --color-glow-blue: var(--glow-blue);
+  --color-glow-amber: var(--glow-amber);
+  --color-accent-cyan: var(--accent-cyan);
+  --color-accent-teal: var(--accent-teal);
+  --color-accent-azure: var(--accent-azure);
+  --color-accent-indigo: var(--accent-indigo);
+  --color-accent-gold: var(--accent-gold);
   --font-sans: var(--font-space-grotesk);
   --font-mono: var(--font-ibm-plex-mono);
+  --font-display: var(--font-gabarito);
 }
 
 * {
@@ -63,11 +96,69 @@ html {
 }
 
 body {
+  position: relative;
   min-height: 100vh;
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-space-grotesk), sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Ambient futuristic backdrop: retro grid + soft directional glow.
+   Fixed and behind everything so all pages inherit depth. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background-image:
+    linear-gradient(
+      to right,
+      color-mix(in srgb, var(--border) 16%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--border) 16%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 46px 46px;
+  -webkit-mask-image: radial-gradient(
+    ellipse 80% 60% at 50% 0%,
+    #000 18%,
+    transparent 78%
+  );
+  mask-image: radial-gradient(
+    ellipse 80% 60% at 50% 0%,
+    #000 18%,
+    transparent 78%
+  );
+  opacity: 0.5;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      40rem 28rem at 85% -8%,
+      color-mix(in srgb, var(--accent-cyan) 13%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      38rem 26rem at 3% 6%,
+      color-mix(in srgb, var(--accent-indigo) 12%, transparent),
+      transparent 72%
+    ),
+    radial-gradient(
+      34rem 24rem at 60% 108%,
+      color-mix(in srgb, var(--accent-gold) 7%, transparent),
+      transparent 70%
+    );
 }
 
 button,
@@ -81,16 +172,472 @@ a {
 }
 
 .brutal-surface {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-surface);
   border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
-  background: var(--surface-deep);
-  box-shadow: 3px 3px 0 #040c18;
+  background:
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, var(--surface-strong) 36%, var(--surface-deep)),
+      var(--surface-deep) 58%
+    );
+  box-shadow: var(--shadow-brutal-sm);
+}
+
+/* Thin luminous top edge — the "retro glass" highlight. */
+.brutal-surface::before,
+.glass-surface::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  border-top: 1px solid color-mix(in srgb, var(--glow-blue) 22%, transparent);
 }
 
 .glass-surface {
-  border: 1px solid color-mix(in srgb, var(--primary) 42%, transparent);
-  background: rgb(11 25 45 / 78%);
-  box-shadow: 3px 3px 0 #040c18;
-  backdrop-filter: blur(16px);
+  position: relative;
+  border-radius: var(--radius-surface);
+  border: 1px solid color-mix(in srgb, var(--primary) 38%, transparent);
+  background:
+    linear-gradient(
+      150deg,
+      rgb(24 54 84 / 30%),
+      rgb(11 25 45 / 82%) 60%
+    );
+  box-shadow:
+    var(--shadow-brutal-sm),
+    inset 0 1px 0 color-mix(in srgb, var(--glow-blue) 16%, transparent);
+  backdrop-filter: blur(18px) saturate(1.15);
+  -webkit-backdrop-filter: blur(18px) saturate(1.15);
+}
+
+/* ---- Neo-brutalism + retro-glass utility layer ---- */
+
+/* Premium glass panel for cards / dialogs / stat strips. */
+.glass-panel {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-surface);
+  border: 1px solid color-mix(in srgb, var(--primary) 26%, transparent);
+  background:
+    linear-gradient(
+      155deg,
+      rgb(24 54 84 / 26%),
+      rgb(11 25 45 / 80%) 64%
+    );
+  box-shadow:
+    var(--shadow-brutal-sm),
+    inset 0 1px 0 color-mix(in srgb, var(--glow-blue) 14%, transparent);
+  backdrop-filter: blur(16px) saturate(1.1);
+  -webkit-backdrop-filter: blur(16px) saturate(1.1);
+}
+
+/* Hard-shadow helpers (neo-brutalism). */
+.hard-shadow {
+  box-shadow: var(--shadow-brutal);
+}
+.hard-shadow-lg {
+  box-shadow: var(--shadow-brutal-lg);
+}
+
+/* Interactive lift: press toward the page like a physical key. */
+.brutal-interactive {
+  transition:
+    transform 140ms var(--ease-out-expo),
+    box-shadow 140ms var(--ease-out-expo),
+    border-color 140ms var(--ease-out-expo);
+}
+.brutal-interactive:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow-brutal-lg);
+}
+.brutal-interactive:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--shadow-ink);
+}
+
+/* Futuristic accent glow on hover. */
+.glow-on-hover {
+  transition:
+    box-shadow 260ms var(--ease-out-expo),
+    border-color 260ms var(--ease-out-expo),
+    transform 200ms var(--ease-out-expo);
+}
+.glow-on-hover:hover {
+  border-color: color-mix(in srgb, var(--glow-cyan) 55%, var(--border));
+  box-shadow:
+    var(--shadow-brutal-sm),
+    0 0 0 1px color-mix(in srgb, var(--glow-cyan) 28%, transparent),
+    0 22px 60px -30px color-mix(in srgb, var(--glow-cyan) 60%, transparent);
+}
+
+/* Retro texture utilities. */
+.dot-grid {
+  background-image: radial-gradient(
+    color-mix(in srgb, var(--border) 45%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 18px 18px;
+}
+.line-grid {
+  background-image:
+    linear-gradient(
+      to right,
+      color-mix(in srgb, var(--border) 22%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--border) 22%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 40px 40px;
+}
+.scanlines {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--ink) 22%, transparent) 0,
+    color-mix(in srgb, var(--ink) 22%, transparent) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+/* Gradient text for headline accents (futuristic), with a slow shimmer. */
+.text-gradient {
+  background: linear-gradient(
+    100deg,
+    var(--foreground) 0%,
+    var(--glow-blue) 30%,
+    var(--glow-cyan) 45%,
+    var(--foreground) 60%,
+    var(--glow-blue) 85%
+  );
+  background-size: 220% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: text-shimmer 7s linear infinite;
+}
+
+@keyframes text-shimmer {
+  to {
+    background-position: 220% center;
+  }
+}
+
+/* Light-sweep sheen on hover (buttons / chips). */
+.sheen {
+  position: relative;
+  overflow: hidden;
+}
+.sheen::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  height: 100%;
+  width: 45%;
+  background: linear-gradient(
+    100deg,
+    transparent,
+    color-mix(in srgb, #ffffff 38%, transparent),
+    transparent
+  );
+  transform: translateX(-200%) skewX(-18deg);
+  transition: transform 720ms var(--ease-out-expo);
+  pointer-events: none;
+}
+.sheen:hover::after {
+  transform: translateX(320%) skewX(-18deg);
+}
+
+/* Retro marquee ticker. */
+.marquee {
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 8%,
+    #000 92%,
+    transparent
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 8%,
+    #000 92%,
+    transparent
+  );
+}
+.marquee-track {
+  display: inline-flex;
+  width: max-content;
+  animation: marquee-scroll 30s linear infinite;
+}
+.marquee:hover .marquee-track {
+  animation-play-state: paused;
+}
+
+@keyframes marquee-scroll {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* ---- ExMarket-inspired "alive" energy layer ---- */
+
+/* Bold rounded display type for headlines. */
+.font-display {
+  font-family: var(--font-gabarito), var(--font-space-grotesk), sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* Sticker offset shadow for big headlines (subtle, professional). */
+.display-shadow {
+  text-shadow: 3px 3px 0 #040c18;
+}
+
+/* Solid accent "sticker" chip — hard border + offset shadow, dark text. */
+.sticker-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  border: 1.5px solid var(--ink);
+  background: var(--chip-bg, var(--accent-cyan));
+  color: var(--ink);
+  padding: 0.3rem 0.8rem;
+  font-family: var(--font-ibm-plex-mono), monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  box-shadow: 2px 2px 0 #040c18;
+}
+
+/* Diagonal background band (skewed colour stripe). */
+.diagonal-band {
+  position: absolute;
+  left: -10%;
+  width: 120%;
+  transform: skewY(-4deg);
+  transform-origin: center;
+  pointer-events: none;
+}
+
+/* Mono eyebrow chip used across pages. */
+.eyebrow-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in srgb, var(--glow-cyan) 32%, transparent);
+  background: color-mix(in srgb, var(--glow-cyan) 8%, transparent);
+  padding: 0.25rem 0.7rem;
+  font-family: var(--font-ibm-plex-mono), monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--glow-cyan) 78%, var(--foreground));
+}
+
+/* Scroll-reveal: hidden until observed in view, then eases up. */
+.reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition:
+    opacity 720ms var(--ease-out-expo),
+    transform 720ms var(--ease-out-expo);
+  transition-delay: var(--reveal-delay, 0ms);
+  will-change: opacity, transform;
+}
+.reveal[data-visible="true"] {
+  opacity: 1;
+  transform: none;
+}
+
+/* Directional reveal variants for entrance variety. */
+.reveal-left {
+  transform: translateX(-24px);
+}
+.reveal-right {
+  transform: translateX(24px);
+}
+.reveal-scale {
+  transform: scale(0.95);
+}
+.reveal-left[data-visible="true"],
+.reveal-right[data-visible="true"],
+.reveal-scale[data-visible="true"] {
+  transform: none;
+}
+
+/* Aceternity-style aurora background. */
+.aurora {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.aurora::before {
+  content: "";
+  position: absolute;
+  inset: -40%;
+  background:
+    radial-gradient(
+      30% 40% at 20% 30%,
+      color-mix(in srgb, var(--glow-cyan) 30%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      28% 38% at 75% 25%,
+      color-mix(in srgb, var(--primary) 26%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      32% 42% at 55% 70%,
+      color-mix(in srgb, var(--steel) 40%, transparent),
+      transparent 62%
+    );
+  filter: blur(46px);
+  animation: aurora-drift 22s ease-in-out infinite alternate;
+}
+
+@keyframes aurora-drift {
+  0% {
+    transform: translate3d(-4%, -2%, 0) rotate(-2deg) scale(1.05);
+  }
+  100% {
+    transform: translate3d(4%, 3%, 0) rotate(3deg) scale(1.15);
+  }
+}
+
+/* ---- Hero backdrop (homepage) ---- */
+
+/* Receding perspective grid that slowly pans toward the viewer. */
+.hero-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(
+      to right,
+      color-mix(in srgb, var(--glow-blue) 16%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--glow-blue) 16%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 52px 52px;
+  -webkit-mask-image: radial-gradient(
+    120% 80% at 50% -10%,
+    #000 0%,
+    transparent 70%
+  );
+  mask-image: radial-gradient(120% 80% at 50% -10%, #000 0%, transparent 70%);
+  animation: hero-grid-pan 26s linear infinite;
+}
+
+@keyframes hero-grid-pan {
+  to {
+    background-position:
+      0 52px,
+      52px 0;
+  }
+}
+
+/* Vertical data beams drifting down through the hero. */
+.hero-beam {
+  position: absolute;
+  top: -30%;
+  width: 1px;
+  height: 30%;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    color-mix(in srgb, var(--glow-cyan) 85%, transparent),
+    transparent
+  );
+  opacity: 0;
+  filter: blur(0.4px);
+  animation: hero-beam-fall 7s linear infinite;
+}
+
+@keyframes hero-beam-fall {
+  0% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.85;
+  }
+  88% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: translateY(520%);
+    opacity: 0;
+  }
+}
+
+/* Slow breathing glow for the aurora orbs. */
+@keyframes glow-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.08);
+  }
+}
+
+/* Aceternity-style moving conic border. */
+.moving-border {
+  position: relative;
+  isolation: isolate;
+}
+.moving-border::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(
+    from var(--mb-angle, 0deg),
+    transparent 0deg,
+    var(--glow-cyan) 60deg,
+    var(--glow-blue) 110deg,
+    transparent 160deg,
+    transparent 360deg
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: mb-spin 4s linear infinite;
+}
+
+@property --mb-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes mb-spin {
+  to {
+    --mb-angle: 360deg;
+  }
 }
 
 .exagora-pointer-highlight {
@@ -175,5 +722,34 @@ a {
   .exagora-active-border-runner {
     animation: none;
     transform: translateX(130%);
+  }
+
+  .aurora::before,
+  .moving-border::before,
+  .hero-grid,
+  .hero-beam {
+    animation: none;
+  }
+
+  .hero-beam {
+    opacity: 0.3;
+  }
+
+  .reveal,
+  .reveal-left,
+  .reveal-right,
+  .reveal-scale {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .text-gradient,
+  .marquee-track {
+    animation: none;
+  }
+
+  .sheen::after {
+    display: none;
   }
 }

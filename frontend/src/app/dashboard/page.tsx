@@ -1,5 +1,6 @@
 "use client";
 
+import { Eyebrow } from "@/components/Eyebrow";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
@@ -15,6 +16,7 @@ import {
 } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { MarketplaceHoverGrid } from "@/components/exagora/MarketplaceHoverGrid";
+import { Reveal } from "@/components/exagora/Reveal";
 import { PageHeader } from "@/components/PageHeader";
 import TaskCard from "@/components/TaskCard";
 import { Badge } from "@/components/ui/badge";
@@ -228,11 +230,20 @@ export default function DashboardPage() {
       : 0;
 
   return (
-    <div className="app-container py-10 sm:py-14">
+    <div
+      className="app-container py-10 sm:py-14"
+      style={{ ["--page-accent" as string]: "var(--accent-gold)" }}
+    >
       <PageHeader
         eyebrow={`Workspace / ${shortAddress(address || "")}`}
         title="Operations dashboard"
+        accent="gold"
         description="Track work from both sides of the marketplace and keep payment, delivery, and verification state in one place."
+        stats={[
+          { label: "requested", value: requestedTasks.length },
+          { label: "provider", value: providerTasks.length },
+          { label: "agent", value: agent ? "Registered" : "—" },
+        ]}
         action={
           <Button asChild>
             <Link href="/tasks/create">
@@ -245,20 +256,24 @@ export default function DashboardPage() {
 
       {loadError && (
         <div
-          className="mt-7 border border-[#d36c72]/70 bg-[#351b28]/55 px-5 py-4 text-sm text-[#f1b3b7]"
+          className="mt-7 rounded-[0.9rem] border border-[#d36c72]/70 bg-[#351b28]/55 px-5 py-4 text-sm text-[#f1b3b7]"
           role="alert"
         >
           {loadError}
         </div>
       )}
 
-      <section className="mt-7 brutal-surface">
+      <Reveal className="mt-7 brutal-surface block">
+        <span
+          aria-hidden="true"
+          className="absolute inset-x-0 top-0 z-[1] h-1.5 bg-[var(--page-accent)]"
+        />
         {agent ? (
           <>
             <div className="flex flex-col gap-5 border-b border-border/55 p-5 sm:flex-row sm:items-start sm:justify-between sm:p-6">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-3">
-                  <h2 className="text-xl font-semibold text-foreground">
+                  <h2 className="font-display text-xl font-semibold text-foreground">
                     {agent.name}
                   </h2>
                   <Badge
@@ -341,10 +356,8 @@ export default function DashboardPage() {
         ) : (
           <div className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="font-mono text-[11px] uppercase text-[#9fc1df]">
-                Agent identity
-              </p>
-              <h2 className="mt-2 text-xl font-semibold text-foreground">
+              <Eyebrow>Agent identity</Eyebrow>
+              <h2 className="mt-2 font-display text-xl font-semibold text-foreground">
                 Add a provider profile
               </h2>
               <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
@@ -357,15 +370,13 @@ export default function DashboardPage() {
             </Button>
           </div>
         )}
-      </section>
+      </Reveal>
 
       <Tabs defaultValue="requested" className="mt-9">
         <div className="flex flex-col gap-4 border-b border-border/65 pb-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="font-mono text-[11px] uppercase text-[#9fc1df]">
-              Task ledger
-            </p>
-            <h2 className="mt-2 text-xl font-semibold text-foreground">
+            <Eyebrow>Task ledger</Eyebrow>
+            <h2 className="mt-2 font-display text-xl font-semibold text-foreground">
               Active work records
             </h2>
           </div>
@@ -388,8 +399,10 @@ export default function DashboardPage() {
         <TabsContent value="requested" className="mt-6">
           {requestedTasks.length > 0 ? (
             <MarketplaceHoverGrid className="grid gap-5 md:grid-cols-2">
-              {requestedTasks.map((task) => (
-                <TaskCard key={task.id} {...task} />
+              {requestedTasks.map((task, index) => (
+                <Reveal key={task.id} delay={Math.min(index, 8) * 60} className="h-full">
+                  <TaskCard {...task} />
+                </Reveal>
               ))}
             </MarketplaceHoverGrid>
           ) : (
@@ -409,8 +422,10 @@ export default function DashboardPage() {
         <TabsContent value="provider" className="mt-6">
           {providerTasks.length > 0 ? (
             <MarketplaceHoverGrid className="grid gap-5 md:grid-cols-2">
-              {providerTasks.map((task) => (
-                <TaskCard key={task.id} {...task} />
+              {providerTasks.map((task, index) => (
+                <Reveal key={task.id} delay={Math.min(index, 8) * 60} className="h-full">
+                  <TaskCard {...task} />
+                </Reveal>
               ))}
             </MarketplaceHoverGrid>
           ) : (
@@ -443,13 +458,17 @@ function DashboardMetric({
   accent?: boolean;
 }) {
   return (
-    <div className="min-h-28 border-r border-b border-border/55 p-5 lg:border-b-0">
+    <div className="group/metric relative min-h-28 overflow-hidden border-r border-b border-border/55 p-5 transition-colors duration-300 hover:bg-[color-mix(in_srgb,var(--page-accent)_5%,transparent)] lg:border-b-0">
+      <span className="pointer-events-none absolute inset-x-0 bottom-0 h-px scale-x-0 bg-[linear-gradient(to_right,transparent,color-mix(in_srgb,var(--page-accent)_70%,transparent),transparent)] transition-transform duration-500 group-hover/metric:scale-x-100" />
       <p className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Icon className="size-3.5" aria-hidden="true" />
+        <Icon
+          className="size-3.5 transition-colors group-hover/metric:[color:var(--page-accent)]"
+          aria-hidden="true"
+        />
         {label}
       </p>
       <p
-        className={`mt-3 font-mono text-sm font-semibold ${
+        className={`font-display mt-3 text-lg ${
           accent ? "text-[#9cd4cc]" : "text-foreground"
         }`}
       >

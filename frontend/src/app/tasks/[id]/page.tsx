@@ -1,5 +1,7 @@
 "use client";
 
+import { Eyebrow } from "@/components/Eyebrow";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
@@ -17,6 +19,7 @@ import {
 import { encodeFunctionData } from "viem";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/EmptyState";
+import { Reveal } from "@/components/exagora/Reveal";
 import { TransactionButton } from "@/components/exagora/TransactionButton";
 import { StatusBadge } from "@/components/StatusBadge";
 import {
@@ -165,14 +168,42 @@ export default function TaskDetailPage() {
   const providerOpen = task.provider === ZERO_ADDRESS;
 
   return (
-    <div className="app-container max-w-5xl py-10 sm:py-14">
-      <header className="border-b border-border/65 pb-7">
+    <div
+      className="app-container max-w-5xl py-10 sm:py-14"
+      style={{ ["--page-accent" as string]: "var(--accent-azure)" }}
+    >
+      <header className="relative isolate border-b border-border/65 pb-7">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -top-24 -right-[10vw] -left-[10vw] -z-10 h-60"
+          style={{
+            background:
+              "radial-gradient(46% 100% at 30% 0%, color-mix(in srgb, var(--page-accent) 15%, transparent), transparent 72%)",
+          }}
+        />
+        <nav className="mb-3 flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
+          <Link href="/" className="transition-colors hover:text-foreground">
+            Home
+          </Link>
+          <span className="text-border">/</span>
+          <Link
+            href="/dashboard"
+            className="transition-colors hover:text-foreground"
+          >
+            Dashboard
+          </Link>
+          <span className="text-border">/</span>
+          <span className="text-foreground/80">Task #{taskId}</span>
+        </nav>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="font-mono text-[11px] uppercase text-[#9fc1df]">
+            <Eyebrow
+              accentColor="var(--page-accent)"
+              className="border-[color:color-mix(in_srgb,var(--page-accent)_38%,transparent)] bg-[color:color-mix(in_srgb,var(--page-accent)_9%,transparent)] text-[color:color-mix(in_srgb,var(--page-accent)_82%,var(--foreground))]"
+            >
               Task record / {taskId}
-            </p>
-            <h1 className="mt-3 text-3xl font-semibold text-foreground sm:text-4xl">
+            </Eyebrow>
+            <h1 className="font-display text-gradient mt-3 text-4xl tracking-tight sm:text-5xl">
               Task #{taskId}
             </h1>
           </div>
@@ -183,7 +214,7 @@ export default function TaskDetailPage() {
         </p>
       </header>
 
-      <section className="mt-7 grid border-t border-l border-border/55 sm:grid-cols-2 lg:grid-cols-4">
+      <Reveal className="mt-7 grid overflow-hidden rounded-[1.15rem] border-t border-l border-border/55 sm:grid-cols-2 lg:grid-cols-4">
         <TaskMetric
           icon={CircleDollarSign}
           label="Budget"
@@ -206,12 +237,12 @@ export default function TaskDetailPage() {
           label="Deadline"
           value={formatDate(task.deadline)}
         />
-      </section>
+      </Reveal>
 
-      <section className="mt-8 brutal-surface p-5 sm:p-6">
+      <Reveal className="mt-8 brutal-surface block p-5 sm:p-6" delay={80}>
         <div className="flex items-center gap-2">
           <FileBox className="size-4 text-primary" aria-hidden="true" />
-          <h2 className="text-lg font-semibold text-foreground">
+          <h2 className="font-display text-lg font-semibold text-foreground">
             Deliverable
           </h2>
         </div>
@@ -248,11 +279,11 @@ export default function TaskDetailPage() {
             The provider has not submitted a deliverable for this task.
           </p>
         )}
-      </section>
+      </Reveal>
 
-      <div className="mt-8">
+      <Reveal className="mt-8 block" delay={120}>
         <WorkReceiptPanel receipt={receipt} taskStatus={task.status} />
-      </div>
+      </Reveal>
 
       {isConnected && (
         <section className="mt-8 border-t border-border/65 pt-6">
@@ -332,9 +363,13 @@ function TaskMetric({
   mono?: boolean;
 }) {
   return (
-    <div className="min-h-24 border-r border-b border-border/55 p-4">
+    <div className="group/metric relative min-h-24 overflow-hidden border-r border-b border-border/55 p-4 transition-colors duration-300 hover:bg-[color-mix(in_srgb,var(--page-accent)_5%,transparent)]">
+      <span className="pointer-events-none absolute inset-x-0 bottom-0 h-px scale-x-0 bg-[linear-gradient(to_right,transparent,color-mix(in_srgb,var(--page-accent)_70%,transparent),transparent)] transition-transform duration-500 group-hover/metric:scale-x-100" />
       <p className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Icon className="size-3.5" aria-hidden="true" />
+        <Icon
+          className="size-3.5 transition-colors group-hover/metric:[color:var(--page-accent)]"
+          aria-hidden="true"
+        />
         {label}
       </p>
       <p

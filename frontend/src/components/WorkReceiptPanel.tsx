@@ -108,7 +108,7 @@ export function WorkReceiptPanel({
 function BadgeScoreIcon() {
   return (
     <span
-      className="inline-flex size-3.5 items-center justify-center border border-current font-mono text-[8px]"
+      className="inline-flex size-3.5 items-center justify-center rounded-full border border-current font-mono text-[8px]"
       aria-hidden="true"
     >
       %

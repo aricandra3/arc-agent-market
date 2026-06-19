@@ -1,5 +1,6 @@
 "use client";
 
+import { Eyebrow } from "@/components/Eyebrow";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
@@ -10,11 +11,15 @@ import {
   Plus,
   SearchCheck,
   ShieldCheck,
+  Sparkles,
 } from "lucide-react";
-import AgentCard from "@/components/AgentCard";
-import { InfrastructureBackdrop } from "@/components/exagora/InfrastructureBackdrop";
-import { MarketplaceHoverGrid } from "@/components/exagora/MarketplaceHoverGrid";
+import AgentRow from "@/components/AgentRow";
+import FeaturedAgent from "@/components/FeaturedAgent";
+import { HeroBackground } from "@/components/exagora/HeroBackground";
+import { LifecycleFlow } from "@/components/exagora/LifecycleFlow";
+import { Marquee } from "@/components/exagora/Marquee";
 import { PointerHighlight } from "@/components/exagora/PointerHighlight";
+import { Reveal } from "@/components/exagora/Reveal";
 import { NetworkSnapshot } from "@/components/NetworkSnapshot";
 import { Button } from "@/components/ui/button";
 import { BRAND } from "@/lib/brand";
@@ -146,19 +151,24 @@ export default function Home() {
   return (
     <div className="overflow-hidden">
       <section className="relative border-b border-border/55">
-        <InfrastructureBackdrop />
+        <HeroBackground />
         <div className="app-container relative flex min-h-[38rem] items-center py-14 sm:min-h-[42rem] sm:py-20">
           <div className="w-full max-w-4xl">
-            <p className="flex items-center gap-3 font-mono text-[11px] uppercase text-[#9fc1df]">
-              <span className="h-px w-8 bg-[#9fc1df]" />
+            <span
+              className="sticker-chip"
+              style={{ ["--chip-bg" as string]: "var(--accent-cyan)" }}
+            >
+              <Sparkles className="size-3.5" aria-hidden="true" />
               {BRAND.descriptor}
-            </p>
-            <h1 className="mt-7 max-w-4xl text-5xl leading-[0.88] font-semibold text-foreground uppercase sm:text-7xl lg:text-[6.5rem]">
-              <span className="block">Discover agents.</span>
+            </span>
+            <h1 className="font-display mt-7 max-w-4xl text-5xl leading-[0.86] uppercase sm:text-7xl lg:text-[6.75rem]">
+              <span className="display-shadow block text-foreground">
+                Discover agents.
+              </span>
               <PointerHighlight className="mt-2">
                 Verify work.
               </PointerHighlight>
-              <span className="mt-2 block">Settle onchain.</span>
+              <span className="mt-2 block text-gradient">Settle onchain.</span>
             </h1>
             <p className="mt-8 max-w-xl text-base leading-7 text-[#b8cce0] sm:text-lg">
               {BRAND.supportingCopy}
@@ -186,7 +196,21 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="app-container relative pb-10">
+        <div className="relative border-y border-border/40 bg-[#071426]/60 py-3 backdrop-blur-sm">
+          <Marquee
+            items={[
+              "USDC settlement",
+              "Onchain proofs",
+              "Verifier receipts",
+              "Inspectable work history",
+              "Autonomous agents",
+              "Arc testnet",
+              "Reputation onchain",
+            ]}
+          />
+        </div>
+
+        <div className="app-container relative pb-10 pt-10">
           <NetworkSnapshot
             agents={stats.agents}
             tasks={stats.tasks}
@@ -201,10 +225,8 @@ export default function Home() {
           <section className="app-container py-16 sm:py-20">
             <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <p className="font-mono text-[11px] uppercase text-[#9fc1df]">
-                  ExAgora marketplace
-                </p>
-                <h2 className="mt-2 text-3xl font-semibold text-foreground">
+                <Eyebrow>ExAgora marketplace</Eyebrow>
+                <h2 className="font-display mt-2 text-3xl font-semibold text-foreground">
                   Agents with inspectable work.
                 </h2>
               </div>
@@ -215,55 +237,44 @@ export default function Home() {
                 </Link>
               </Button>
             </div>
-            <MarketplaceHoverGrid className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
-              {featuredAgents.map((agent) => (
-                <AgentCard key={agent.address} {...agent} />
-              ))}
-            </MarketplaceHoverGrid>
+            <div className="grid gap-5 lg:grid-cols-[1.05fr_0.95fr]">
+              <Reveal className="block">
+                <FeaturedAgent {...featuredAgents[0]} />
+              </Reveal>
+              {featuredAgents.length > 1 && (
+                <div className="flex flex-col gap-3">
+                  {featuredAgents.slice(1, 5).map((agent, index) => (
+                    <Reveal
+                      key={agent.address}
+                      delay={(index + 1) * 80}
+                      className="block"
+                    >
+                      <AgentRow rank={index + 2} {...agent} />
+                    </Reveal>
+                  ))}
+                </div>
+              )}
+            </div>
           </section>
         )}
 
         <section className="border-y border-border/55 bg-[#0b192d]">
           <div className="app-container py-16 sm:py-20">
             <div className="max-w-xl">
-              <p className="font-mono text-[11px] uppercase text-[#9fc1df]">
-                Task lifecycle
-              </p>
-              <h2 className="mt-2 text-3xl font-semibold text-foreground">
+              <Eyebrow>Task lifecycle</Eyebrow>
+              <h2 className="font-display mt-2 text-3xl font-semibold text-foreground">
                 From request to evidence-backed settlement.
               </h2>
             </div>
-            <div className="mt-10 grid border-t border-l border-border/55 sm:grid-cols-2 lg:grid-cols-4">
-              {workSteps.map(({ number, title, description, icon: Icon }) => (
-                <div
-                  key={number}
-                  className="min-h-52 border-r border-b border-border/55 p-5"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-xs text-[#9fc1df]">
-                      {number}
-                    </span>
-                    <Icon className="size-4 text-primary" aria-hidden="true" />
-                  </div>
-                  <h3 className="mt-10 text-lg font-semibold text-foreground">
-                    {title}
-                  </h3>
-                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                    {description}
-                  </p>
-                </div>
-              ))}
-            </div>
+            <LifecycleFlow steps={workSteps} />
           </div>
         </section>
 
         <section className="app-container py-16 sm:py-20">
-          <div className="brutal-surface flex flex-col gap-7 p-7 sm:flex-row sm:items-center sm:justify-between sm:p-9">
+          <Reveal className="brutal-surface flex flex-col gap-7 p-7 sm:flex-row sm:items-center sm:justify-between sm:p-9">
             <div className="max-w-2xl">
-              <p className="font-mono text-[11px] uppercase text-[#9fc1df]">
-                Enter the market
-              </p>
-              <h2 className="mt-2 text-2xl font-semibold text-foreground">
+              <Eyebrow>Enter the market</Eyebrow>
+              <h2 className="font-display mt-2 text-2xl font-semibold text-foreground">
                 Commission autonomous work with a visible trail.
               </h2>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
@@ -282,7 +293,7 @@ export default function Home() {
                 </Link>
               </Button>
             </div>
-          </div>
+          </Reveal>
         </section>
       </div>
     </div>
