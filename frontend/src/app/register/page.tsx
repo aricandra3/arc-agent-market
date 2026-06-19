@@ -1,5 +1,6 @@
 "use client";
 
+import { Eyebrow } from "@/components/Eyebrow";
 import Link from "next/link";
 import { useState } from "react";
 import {
@@ -13,17 +14,19 @@ import {
 import { encodeFunctionData } from "viem";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/EmptyState";
+import { Reveal } from "@/components/exagora/Reveal";
+import { TransactionButton } from "@/components/exagora/TransactionButton";
 import { PageHeader } from "@/components/PageHeader";
 import {
   TransactionState,
   type TransactionPhase,
 } from "@/components/TransactionState";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import { BRAND } from "@/lib/brand";
 import {
   AGENT_REGISTRY_ABI,
   CONTRACTS,
@@ -158,9 +161,7 @@ export default function RegisterPage() {
           <div className="flex size-11 items-center justify-center border border-[#6eb8ad]/60 bg-[#6eb8ad]/10 text-[#9cd4cc]">
             <CircleCheck className="size-5" aria-hidden="true" />
           </div>
-          <p className="mt-7 font-mono text-[11px] uppercase text-[#9fc1df]">
-            Registration submitted
-          </p>
+          <Eyebrow className="mt-7">Registration submitted</Eyebrow>
           <h1 className="mt-2 text-3xl font-semibold text-foreground">
             {form.name} is entering the market.
           </h1>
@@ -189,15 +190,20 @@ export default function RegisterPage() {
   const isBusy = phase === "signing";
 
   return (
-    <div className="app-container max-w-4xl py-10 sm:py-14">
+    <div
+      className="app-container max-w-4xl py-10 sm:py-14"
+      style={{ ["--page-accent" as string]: "var(--accent-indigo)" }}
+    >
       <PageHeader
         eyebrow="Provider onboarding"
         title="Register an agent"
-        description="Publish identity, capabilities, and commercial terms to Arc Agent Market."
+        accent="indigo"
+        breadcrumb={[{ label: "Agents", href: "/agents" }, { label: "Register" }]}
+        description={`Publish identity, capabilities, and commercial terms to ${BRAND.name}.`}
       />
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-6">
-        <section className="brutal-surface p-5 sm:p-7">
+        <Reveal className="brutal-surface block p-5 sm:p-7">
           <SectionTitle number="01" title="Identity" />
           <div className="mt-6 grid gap-5">
             <Field label="Agent name" htmlFor="agent-name" required>
@@ -223,9 +229,9 @@ export default function RegisterPage() {
               />
             </Field>
           </div>
-        </section>
+        </Reveal>
 
-        <section className="brutal-surface p-5 sm:p-7">
+        <Reveal className="brutal-surface block p-5 sm:p-7">
           <SectionTitle number="02" title="Capabilities" />
           <p className="mt-3 text-sm text-muted-foreground">
             Select at least one capability buyers can use for discovery.
@@ -257,9 +263,9 @@ export default function RegisterPage() {
               {form.skills.length} selected
             </p>
           )}
-        </section>
+        </Reveal>
 
-        <section className="brutal-surface p-5 sm:p-7">
+        <Reveal className="brutal-surface block p-5 sm:p-7">
           <SectionTitle number="03" title="Pricing" />
           <div className="mt-6 grid gap-5 sm:grid-cols-2">
             <Field label="Rate per task (USDC)" htmlFor="rate-task">
@@ -289,9 +295,9 @@ export default function RegisterPage() {
               />
             </Field>
           </div>
-        </section>
+        </Reveal>
 
-        <section className="brutal-surface p-5 sm:p-7">
+        <Reveal className="brutal-surface block p-5 sm:p-7">
           <SectionTitle number="04" title="Wallet summary" />
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
             <div>
@@ -318,15 +324,17 @@ export default function RegisterPage() {
             </p>
           )}
           <TransactionState phase={phase} message={error || undefined} />
-          <Button
+          <TransactionButton
+            phase={phase}
             type="submit"
             size="lg"
             className="mt-5 w-full"
             disabled={isBusy || form.skills.length === 0 || !form.name.trim()}
+            submittedLabel="Registration submitted"
           >
             <CircleDollarSign aria-hidden="true" />
-            {isBusy ? "Sign registration in wallet" : "Register on Arc Testnet"}
-          </Button>
+            Register on Arc Testnet
+          </TransactionButton>
           <a
             href="https://testnet.arcscan.app"
             target="_blank"
@@ -336,7 +344,7 @@ export default function RegisterPage() {
             View Arc Testnet explorer
             <ExternalLink className="size-3" aria-hidden="true" />
           </a>
-        </section>
+        </Reveal>
       </form>
     </div>
   );
@@ -345,13 +353,10 @@ export default function RegisterPage() {
 function SectionTitle({ number, title }: { number: string; title: string }) {
   return (
     <div className="flex items-center gap-3">
-      <Badge
-        variant="outline"
-        className="border-border bg-secondary font-mono text-[#9fc1df]"
-      >
+      <span className="grid size-9 shrink-0 place-items-center rounded-[0.65rem] border-[1.5px] border-[#04101f] bg-[var(--page-accent)] font-mono text-sm font-bold text-[#071426] shadow-[2px_2px_0_#040c18]">
         {number}
-      </Badge>
-      <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+      </span>
+      <h2 className="font-display text-xl text-foreground">{title}</h2>
     </div>
   );
 }

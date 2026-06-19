@@ -1,5 +1,6 @@
 "use client";
 
+import { Eyebrow } from "@/components/Eyebrow";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -11,12 +12,15 @@ import {
   RadioTower,
   Star,
 } from "lucide-react";
+import { AgentGlyph } from "@/components/AgentGlyph";
 import { EmptyState } from "@/components/EmptyState";
+import { Reveal } from "@/components/exagora/Reveal";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { BRAND } from "@/lib/brand";
 import {
   AGENT_REGISTRY_ABI,
   CONTRACTS,
@@ -138,7 +142,7 @@ export default function AgentProfilePage() {
           title="Agent record not found"
           description={
             loadError ||
-            "This address does not contain an active Arc Agent Market profile."
+            `This address does not contain an active ${BRAND.name} profile.`
           }
           headingLevel="h1"
           action={
@@ -159,20 +163,58 @@ export default function AgentProfilePage() {
     Number(verificationStats.totalReceipts) > 0;
 
   return (
-    <div className="app-container grid gap-8 py-10 lg:grid-cols-[minmax(0,1fr)_20rem] lg:py-14">
+    <div
+      className="app-container grid gap-8 py-10 lg:grid-cols-[minmax(0,1fr)_20rem] lg:py-14"
+      style={{ ["--page-accent" as string]: "var(--accent-cyan)" }}
+    >
       <section className="min-w-0 space-y-8">
-        <div className="border-b border-border/65 pb-7">
+        <div className="relative isolate border-b border-border/65 pb-7">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -top-24 -right-[10vw] -left-[10vw] -z-10 h-60"
+            style={{
+              background:
+                "radial-gradient(46% 100% at 30% 0%, color-mix(in srgb, var(--page-accent) 15%, transparent), transparent 72%)",
+            }}
+          />
+          <nav className="mb-3 flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
+            <Link href="/" className="transition-colors hover:text-foreground">
+              Home
+            </Link>
+            <span className="text-border">/</span>
+            <Link
+              href="/agents"
+              className="transition-colors hover:text-foreground"
+            >
+              Agents
+            </Link>
+            <span className="text-border">/</span>
+            <span className="truncate text-foreground/80">{agent.name}</span>
+          </nav>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0">
-              <p className="font-mono text-[11px] uppercase text-[#9fc1df]">
+              <Eyebrow
+                accentColor="var(--page-accent)"
+                className="border-[color:color-mix(in_srgb,var(--page-accent)_38%,transparent)] bg-[color:color-mix(in_srgb,var(--page-accent)_9%,transparent)] text-[color:color-mix(in_srgb,var(--page-accent)_82%,var(--foreground))]"
+              >
                 Agent profile
-              </p>
-              <h1 className="mt-3 text-3xl font-semibold text-foreground sm:text-4xl">
-                {agent.name}
-              </h1>
-              <p className="mt-3 break-all font-mono text-xs leading-5 text-muted-foreground">
-                {address}
-              </p>
+              </Eyebrow>
+              <div className="mt-4 flex items-center gap-4">
+                <AgentGlyph
+                  seed={address}
+                  name={agent.name}
+                  className="size-14"
+                  labelClassName="text-lg"
+                />
+                <div className="min-w-0">
+                  <h1 className="font-display text-gradient text-4xl tracking-tight sm:text-5xl">
+                    {agent.name}
+                  </h1>
+                  <p className="mt-2 break-all font-mono text-xs leading-5 text-muted-foreground">
+                    {address}
+                  </p>
+                </div>
+              </div>
             </div>
             <StatusBadge
               kind="agent"
@@ -195,10 +237,10 @@ export default function AgentProfilePage() {
           </div>
         </div>
 
-        <section>
+        <Reveal className="block">
           <div className="mb-4 flex items-center gap-2">
             <BadgeCheck className="size-4 text-[#9cd4cc]" aria-hidden="true" />
-            <h2 className="text-lg font-semibold text-foreground">
+            <h2 className="font-display text-lg font-semibold text-foreground">
               Verified work
             </h2>
           </div>
@@ -227,12 +269,12 @@ export default function AgentProfilePage() {
               </p>
             </div>
           )}
-        </section>
+        </Reveal>
 
-        <section>
+        <Reveal className="block" delay={90}>
           <div className="mb-4 flex items-center gap-2">
             <Star className="size-4 text-[#d4ad6f]" aria-hidden="true" />
-            <h2 className="text-lg font-semibold text-foreground">
+            <h2 className="font-display text-lg font-semibold text-foreground">
               Reputation
             </h2>
           </div>
@@ -270,14 +312,16 @@ export default function AgentProfilePage() {
               </span>
             </div>
           </div>
-        </section>
+        </Reveal>
       </section>
 
       <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
-        <div className="brutal-surface p-5">
-          <p className="font-mono text-[11px] uppercase text-[#9fc1df]">
-            Commercial terms
-          </p>
+        <Reveal className="brutal-surface block p-5" delay={120}>
+          <span
+            aria-hidden="true"
+            className="absolute inset-x-0 top-0 h-1.5 bg-[var(--page-accent)]"
+          />
+          <Eyebrow>Commercial terms</Eyebrow>
           <div className="mt-5 space-y-4">
             <PriceRow
               icon={CircleDollarSign}
@@ -303,7 +347,7 @@ export default function AgentProfilePage() {
               value={`${formatUSDC(agent.totalEarnings)} USDC`}
             />
           </div>
-        </div>
+        </Reveal>
 
         <div className="flex flex-col gap-3">
           {isConnected && (
@@ -340,13 +384,12 @@ function Metric({
 }) {
   return (
     <div
-      className={`p-5 ${
-        last
-          ? ""
-          : "border-b border-border/55 sm:border-r sm:border-b-0"
+      className={`group/metric relative overflow-hidden p-5 transition-colors duration-300 hover:bg-[color-mix(in_srgb,var(--page-accent)_5%,transparent)] ${
+        last ? "" : "border-b border-border/55 sm:border-r sm:border-b-0"
       }`}
     >
-      <p className="font-mono text-xl font-semibold text-foreground">{value}</p>
+      <span className="pointer-events-none absolute inset-x-0 bottom-0 h-px scale-x-0 bg-[linear-gradient(to_right,transparent,color-mix(in_srgb,var(--page-accent)_70%,transparent),transparent)] transition-transform duration-500 group-hover/metric:scale-x-100" />
+      <p className="font-mono font-display text-xl font-semibold text-foreground">{value}</p>
       <p className="mt-1 text-xs text-muted-foreground">{label}</p>
     </div>
   );

@@ -1,5 +1,6 @@
 "use client";
 
+import { Eyebrow } from "@/components/Eyebrow";
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
@@ -13,10 +14,11 @@ import {
 import { encodeFunctionData, isAddress, parseUnits } from "viem";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/EmptyState";
+import { Reveal } from "@/components/exagora/Reveal";
+import { TransactionButton } from "@/components/exagora/TransactionButton";
 import { PageHeader } from "@/components/PageHeader";
 import { TransactionState } from "@/components/TransactionState";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -181,10 +183,15 @@ function CreateTaskPage() {
           : "idle";
 
   return (
-    <div className="app-container max-w-6xl py-10 sm:py-14">
+    <div
+      className="app-container max-w-6xl py-10 sm:py-14"
+      style={{ ["--page-accent" as string]: "var(--accent-azure)" }}
+    >
       <PageHeader
         eyebrow="Task escrow"
         title="Create a task"
+        accent="azure"
+        breadcrumb={[{ label: "Dashboard", href: "/dashboard" }, { label: "Create task" }]}
         description="Define the work, select a provider or open the request to the market, and secure the budget in USDC."
       />
 
@@ -192,7 +199,7 @@ function CreateTaskPage() {
         onSubmit={handleSubmit}
         className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]"
       >
-        <section className="brutal-surface space-y-6 p-5 sm:p-7">
+        <Reveal className="brutal-surface block space-y-6 p-5 sm:p-7">
           <Field label="Provider address" htmlFor="provider">
             <Input
               id="provider"
@@ -280,13 +287,15 @@ function CreateTaskPage() {
               ))}
             </div>
           )}
-        </section>
+        </Reveal>
 
         <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
-          <div className="brutal-surface p-5">
-            <p className="font-mono text-[11px] uppercase text-[#9fc1df]">
-              Escrow summary
-            </p>
+          <Reveal className="brutal-surface block p-5" delay={100}>
+            <span
+              aria-hidden="true"
+              className="absolute inset-x-0 top-0 h-1.5 bg-[var(--accent-azure)]"
+            />
+            <Eyebrow>Escrow summary</Eyebrow>
             <div className="mt-5 space-y-4">
               <SummaryRow
                 icon={CircleDollarSign}
@@ -326,11 +335,11 @@ function CreateTaskPage() {
                 complete={phase === "submitted"}
               />
             </div>
-          </div>
+          </Reveal>
 
           {error && (
             <p
-              className="border border-[#d36c72]/55 bg-[#d36c72]/10 p-3 text-sm text-[#efa2a7]"
+              className="rounded-[0.65rem] border border-[#d36c72]/55 bg-[#d36c72]/10 p-3 text-sm text-[#efa2a7]"
               role="alert"
             >
               {error}
@@ -343,15 +352,17 @@ function CreateTaskPage() {
             message={error || undefined}
           />
 
-          <Button
+          <TransactionButton
+            phase={transactionPhase}
             type="submit"
             size="lg"
             className="w-full"
             disabled={isBusy || phase === "submitted"}
+            submittedLabel="Task submitted"
           >
             <FilePlus2 aria-hidden="true" />
             {buttonLabel}
-          </Button>
+          </TransactionButton>
         </aside>
       </form>
     </div>

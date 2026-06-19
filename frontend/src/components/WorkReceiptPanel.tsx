@@ -1,10 +1,11 @@
 import { ExternalLink, FileCheck2, Fingerprint, UserCheck } from "lucide-react";
+import { IdentityTooltip } from "@/components/exagora/IdentityTooltip";
+import { ProofTimeline } from "@/components/exagora/ProofTimeline";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { StatusBadge, type ReceiptStatus } from "@/components/StatusBadge";
 import {
   formatPercentBps,
-  shortAddress,
   type WorkReceiptRecord,
 } from "@/lib/contracts";
 
@@ -67,7 +68,10 @@ export function WorkReceiptPanel({
                 Verifier
               </p>
               <p className="mt-2 font-mono text-sm text-foreground">
-                {shortAddress(receipt.verifier)}
+                <IdentityTooltip
+                  address={receipt.verifier}
+                  role="Receipt verifier"
+                />
               </p>
             </div>
             <div>
@@ -94,6 +98,7 @@ export function WorkReceiptPanel({
               </Button>
             </div>
           )}
+          <ProofTimeline receipt={receipt} taskStatus={taskStatus} />
         </>
       )}
     </section>
@@ -103,7 +108,7 @@ export function WorkReceiptPanel({
 function BadgeScoreIcon() {
   return (
     <span
-      className="inline-flex size-3.5 items-center justify-center border border-current font-mono text-[8px]"
+      className="inline-flex size-3.5 items-center justify-center rounded-full border border-current font-mono text-[8px]"
       aria-hidden="true"
     >
       %

@@ -4,22 +4,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   CircleAlert,
-  CircleDollarSign,
   ExternalLink,
+  Loader2,
   LogOut,
   Menu,
-  PanelsTopLeft,
   QrCode,
   Radio,
-  ShieldCheck,
   Wallet,
-  WalletCards,
-  type LucideIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
-import { verifyMessage } from "viem";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { ArcMark } from "@/components/ArcMark";
+import { ExAgoraMark } from "@/components/ExAgoraMark";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -42,46 +37,24 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { shortAddress } from "@/lib/contracts";
+import { BRAND } from "@/lib/brand";
+import { arcTestnet, shortAddress } from "@/lib/contracts";
+import {
+  clearSession,
+  loadSession,
+  signInWithEthereum,
+  type Eip1193Provider,
+} from "@/lib/siwe";
+import {
+  useInjectedWallets,
+  type DiscoveredWallet,
+} from "@/lib/useInjectedWallets";
 import { useWalletStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
-function generateNonce() {
-  return (
-    Math.random().toString(36).substring(2, 10) +
-    Math.random().toString(36).substring(2, 10)
-  );
-}
-
-function createSiweMessage(address: string, chainId: number, nonce: string) {
-  const domain = window.location.host;
-  const uri = window.location.origin;
-  const issuedAt = new Date().toISOString();
-  return `${domain} wants you to sign in with your Ethereum account:\n${address}\n\nSign in to Arc Agent Market\n\nURI: ${uri}\nVersion: 1\nChain ID: ${chainId}\nNonce: ${nonce}\nIssued At: ${issuedAt}`;
-}
-
-type EthereumLikeProvider = {
-  request: (args: {
-    method: string;
-    params?: unknown[];
-  }) => Promise<unknown>;
-};
-
-type InjectedWalletProvider = EthereumLikeProvider & {
-  isMetaMask?: boolean;
-  isCoinbaseWallet?: boolean;
-  isTrust?: boolean;
-  isRabby?: boolean;
-  providers?: InjectedWalletProvider[];
-};
-
-type WalletOption = {
-  id: string;
-  name: string;
-  description: string;
-  icon: LucideIcon;
-  detect: () => EthereumLikeProvider | null;
-};
+const WALLETCONNECT_PROJECT_ID =
+  process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ??
+  "c4f79cc821944d9680842e34466bfb";
 
 const navItems = [
   { href: "/agents", label: "Agents" },
@@ -94,232 +67,155 @@ export default function AppHeader() {
   const pathname = usePathname();
   const { address, isConnected, setConnected, setDisconnected } =
     useWalletStore();
-  const [isSigningIn, setIsSigningIn] = useState(false);
+  const injectedWallets = useInjectedWallets();
+
+  const [connectingId, setConnectingId] = useState<string | null>(null);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [error, setError] = useState("");
-  const [walletOptions, setWalletOptions] = useState<WalletOption[]>([]);
-
-  useEffect(() => {
-    const options: WalletOption[] = [];
-
-    if (typeof window !== "undefined") {
-      const eth = window.ethereum as InjectedWalletProvider | undefined;
-
-      if (eth?.isMetaMask) {
-        options.push({
-          id: "metamask",
-          name: "MetaMask",
-          description: "Browser extension",
-          icon: WalletCards,
-          detect: () => eth,
-        });
-      }
-
-      if (eth?.isCoinbaseWallet) {
-        options.push({
-          id: "coinbase",
-          name: "Coinbase Wallet",
-          description: "Browser extension",
-          icon: CircleDollarSign,
-          detect: () => eth,
-        });
-      }
-
-      if (eth?.isTrust) {
-        options.push({
-          id: "trust",
-          name: "Trust Wallet",
-          description: "Browser extension",
-          icon: ShieldCheck,
-          detect: () => eth,
-        });
-      }
-
-      if (eth?.isRabby) {
-        options.push({
-          id: "rabby",
-          name: "Rabby",
-          description: "Browser extension",
-          icon: PanelsTopLeft,
-          detect: () => eth,
-        });
-      }
-
-      if (eth && options.length === 0) {
-        options.push({
-          id: "injected",
-          name: "Browser Wallet",
-          description: "Injected provider",
-          icon: Wallet,
-          detect: () => eth,
-        });
-      }
-
-      for (const provider of eth?.providers ?? []) {
-        if (
-          provider.isMetaMask &&
-          !options.some((option) => option.id === "metamask")
-        ) {
-          options.push({
-            id: "metamask",
-            name: "MetaMask",
-            description: "Browser extension",
-            icon: WalletCards,
-            detect: () => provider,
-          });
-        }
-        if (
-          provider.isCoinbaseWallet &&
-          !options.some((option) => option.id === "coinbase")
-        ) {
-          options.push({
-            id: "coinbase",
-            name: "Coinbase Wallet",
-            description: "Browser extension",
-            icon: CircleDollarSign,
-            detect: () => provider,
-          });
-        }
-      }
-    }
-
-    options.push({
-      id: "walletconnect",
-      name: "WalletConnect",
-      description: "Scan a QR code",
-      icon: QrCode,
-      detect: () => null,
-    });
-
-    queueMicrotask(() => setWalletOptions(options));
-  }, []);
-
-  useEffect(() => {
-    const saved = localStorage.getItem("siwe-session");
-    if (!saved) return;
-
-    try {
-      const session = JSON.parse(saved);
-      if (session.address && session.expiresAt > Date.now()) {
-        setConnected(session.address, session.chainId || 5042002);
-      } else {
-        localStorage.removeItem("siwe-session");
-      }
-    } catch {
-      localStorage.removeItem("siwe-session");
-    }
-  }, [setConnected]);
-
-  const signWithProvider = useCallback(
-    async (provider: EthereumLikeProvider, userAddress: string) => {
-      const chainIdRaw = await provider.request({ method: "eth_chainId" });
-      const chainId =
-        typeof chainIdRaw === "string"
-          ? parseInt(chainIdRaw, 16)
-          : Number(chainIdRaw);
-      const nonce = generateNonce();
-      const message = createSiweMessage(userAddress, chainId, nonce);
-
-      const signatureRaw = await provider.request({
-        method: "personal_sign",
-        params: [message, userAddress],
-      });
-      if (typeof signatureRaw !== "string") {
-        throw new Error("Wallet returned an invalid signature.");
-      }
-
-      const isValid = await verifyMessage({
-        message,
-        signature: signatureRaw as `0x${string}`,
-        address: userAddress as `0x${string}`,
-      });
-
-      if (!isValid) throw new Error("Signature verification failed.");
-
-      localStorage.setItem(
-        "siwe-session",
-        JSON.stringify({
-          address: userAddress,
-          chainId,
-          nonce,
-          signature: signatureRaw,
-          expiresAt: Date.now() + 24 * 60 * 60 * 1000,
-        }),
-      );
-      setConnected(userAddress, chainId);
-    },
-    [setConnected],
+  const [activeProvider, setActiveProvider] = useState<Eip1193Provider | null>(
+    null,
   );
 
-  const handleWalletSelect = useCallback(
-    async (option: WalletOption) => {
+  const isConnecting = connectingId !== null;
+  const hasLegacyInjected =
+    typeof window !== "undefined" && Boolean(window.ethereum);
+
+  const handleDisconnect = useCallback(() => {
+    clearSession();
+    setActiveProvider(null);
+    setDisconnected();
+  }, [setDisconnected]);
+
+  // Restore a previous SIWE session on load.
+  useEffect(() => {
+    const session = loadSession();
+    if (!session) return;
+    setConnected(session.address, session.chainId);
+    if (typeof window === "undefined" || !window.ethereum) return;
+    const provider = window.ethereum as unknown as Eip1193Provider;
+    const frame = requestAnimationFrame(() => setActiveProvider(provider));
+    return () => cancelAnimationFrame(frame);
+  }, [setConnected]);
+
+  // Live wallet events — react to account/chain changes from the wallet.
+  useEffect(() => {
+    if (!activeProvider?.on) return;
+
+    const onAccountsChanged = (...args: unknown[]) => {
+      const accounts = (args[0] as string[]) ?? [];
+      if (accounts.length === 0) {
+        handleDisconnect();
+        toast.message("Wallet disconnected");
+      } else {
+        handleDisconnect();
+        toast.message("Account changed — please reconnect to continue.");
+      }
+    };
+    const onChainChanged = (...args: unknown[]) => {
+      const hexId = args[0] as string;
+      const state = useWalletStore.getState();
+      if (state.address) {
+        state.setConnected(state.address, parseInt(hexId, 16));
+      }
+    };
+    const onDisconnect = () => handleDisconnect();
+
+    activeProvider.on("accountsChanged", onAccountsChanged);
+    activeProvider.on("chainChanged", onChainChanged);
+    activeProvider.on("disconnect", onDisconnect);
+
+    return () => {
+      activeProvider.removeListener?.("accountsChanged", onAccountsChanged);
+      activeProvider.removeListener?.("chainChanged", onChainChanged);
+      activeProvider.removeListener?.("disconnect", onDisconnect);
+    };
+  }, [activeProvider, handleDisconnect]);
+
+  const runSignIn = useCallback(
+    async (provider: Eip1193Provider, id: string, label: string) => {
       setError("");
-      setIsSigningIn(true);
-      setShowModal(false);
-
+      setConnectingId(id);
       try {
-        if (option.id === "walletconnect") {
-          const { EthereumProvider } = await import(
-            "@walletconnect/ethereum-provider"
-          );
-          const wcProvider = await EthereumProvider.init({
-            projectId: "c4f79cc821944d9680842e34466bfb",
-            chains: [5042002],
-            showQrModal: true,
-            qrModalOptions: {
-              themeMode: "dark",
-              themeVariables: {
-                "--wcm-z-index": "9999",
-              },
-            },
-            metadata: {
-              name: "Arc Agent Market",
-              description: "Verified autonomous work on Arc",
-              url: window.location.origin,
-              icons: [`${window.location.origin}/favicon.ico`],
-            },
-          });
-
-          await wcProvider.connect();
-          const accounts = (await wcProvider.request({
-            method: "eth_accounts",
-          })) as string[];
-          if (!accounts?.length) throw new Error("No accounts returned.");
-          await signWithProvider(
-            wcProvider as EthereumLikeProvider,
-            accounts[0],
-          );
-        } else {
-          const provider = option.detect();
-          if (!provider) throw new Error(`${option.name} was not detected.`);
-          const accounts = (await provider.request({
-            method: "eth_requestAccounts",
-          })) as string[];
-          if (!accounts?.length) throw new Error("No accounts returned.");
-          await signWithProvider(provider, accounts[0]);
-        }
-      } catch (walletError: unknown) {
+        const session = await signInWithEthereum(provider);
+        setActiveProvider(provider);
+        setConnected(session.address, session.chainId);
+        setShowModal(false);
+        toast.success(`Connected with ${label}`, {
+          description: shortAddress(session.address),
+        });
+      } catch (signInError: unknown) {
+        const code = (signInError as { code?: number })?.code;
         const message =
-          walletError instanceof Error
-            ? walletError.message
-            : "Connection failed.";
-        console.error("Wallet connect failed:", walletError);
+          code === 4001
+            ? "Signature request was rejected."
+            : signInError instanceof Error
+              ? signInError.message
+              : "Connection failed.";
+        console.error("Wallet sign-in failed:", signInError);
         setError(message);
         setShowModal(true);
         toast.error("Wallet connection failed", { description: message });
       } finally {
-        setIsSigningIn(false);
+        setConnectingId(null);
       }
     },
-    [signWithProvider],
+    [setConnected],
   );
 
-  const handleDisconnect = useCallback(() => {
-    localStorage.removeItem("siwe-session");
-    setDisconnected();
-    toast.success("Wallet disconnected");
-  }, [setDisconnected]);
+  const connectInjected = useCallback(
+    (wallet: DiscoveredWallet) =>
+      runSignIn(wallet.provider, wallet.info.rdns, wallet.info.name),
+    [runSignIn],
+  );
+
+  const connectLegacy = useCallback(() => {
+    if (typeof window === "undefined" || !window.ethereum) {
+      setError("No browser wallet detected.");
+      return;
+    }
+    runSignIn(
+      window.ethereum as unknown as Eip1193Provider,
+      "legacy",
+      "Browser wallet",
+    );
+  }, [runSignIn]);
+
+  const connectWalletConnect = useCallback(async () => {
+    setError("");
+    setConnectingId("walletconnect");
+    try {
+      const { EthereumProvider } = await import(
+        "@walletconnect/ethereum-provider"
+      );
+      const wcProvider = await EthereumProvider.init({
+        projectId: WALLETCONNECT_PROJECT_ID,
+        chains: [arcTestnet.id],
+        optionalChains: [1, 8453, 137, 42161],
+        showQrModal: true,
+        qrModalOptions: { themeMode: "dark" },
+        metadata: {
+          name: BRAND.name,
+          description: BRAND.descriptor,
+          url: window.location.origin,
+          icons: [`${window.location.origin}/favicon.ico`],
+        },
+      });
+      await wcProvider.connect();
+      await runSignIn(
+        wcProvider as unknown as Eip1193Provider,
+        "walletconnect",
+        "WalletConnect",
+      );
+    } catch (wcError: unknown) {
+      const message =
+        wcError instanceof Error ? wcError.message : "Connection failed.";
+      console.error("WalletConnect failed:", wcError);
+      setError(message);
+      setConnectingId(null);
+      toast.error("WalletConnect failed", { description: message });
+    }
+  }, [runSignIn]);
 
   return (
     <>
@@ -330,9 +226,9 @@ export default function AppHeader() {
               href="/"
               className="flex min-w-0 items-center gap-2 text-primary"
             >
-              <ArcMark />
+              <ExAgoraMark />
               <span className="truncate text-sm font-semibold text-foreground">
-                Arc Agent Market
+                {BRAND.name}
               </span>
             </Link>
             <nav className="hidden items-center gap-1 md:flex">
@@ -390,10 +286,14 @@ export default function AppHeader() {
                 size="sm"
                 className="hidden md:inline-flex"
                 onClick={() => setShowModal(true)}
-                disabled={isSigningIn}
+                disabled={isConnecting}
               >
-                <Wallet aria-hidden="true" />
-                {isSigningIn ? "Signing..." : "Connect wallet"}
+                {isConnecting ? (
+                  <Loader2 className="animate-spin" aria-hidden="true" />
+                ) : (
+                  <Wallet aria-hidden="true" />
+                )}
+                {isConnecting ? "Connecting..." : "Connect wallet"}
               </Button>
             )}
 
@@ -411,12 +311,10 @@ export default function AppHeader() {
               <SheetContent className="w-[min(88vw,22rem)]">
                 <SheetHeader className="border-b border-border/60 px-5 py-5 text-left">
                   <SheetTitle className="flex items-center gap-2">
-                    <ArcMark className="text-primary" />
-                    Arc Agent Market
+                    <ExAgoraMark className="text-primary" />
+                    {BRAND.name}
                   </SheetTitle>
-                  <SheetDescription>
-                    Verified autonomous work on Arc.
-                  </SheetDescription>
+                  <SheetDescription>{BRAND.descriptor}</SheetDescription>
                 </SheetHeader>
                 <nav className="flex flex-col gap-1 px-4">
                   {navItems.map((item) => (
@@ -424,7 +322,7 @@ export default function AppHeader() {
                       <Link
                         href={item.href}
                         className={cn(
-                          "flex min-h-10 items-center border border-transparent px-3 text-sm text-muted-foreground hover:border-border hover:bg-accent hover:text-foreground",
+                          "flex min-h-10 items-center rounded-[0.65rem] border border-transparent px-3 text-sm text-muted-foreground hover:border-border hover:bg-accent hover:text-foreground",
                           pathname === item.href &&
                             "border-border bg-accent text-foreground",
                         )}
@@ -468,7 +366,7 @@ export default function AppHeader() {
                         setIsMobileOpen(false);
                         setShowModal(true);
                       }}
-                      disabled={isSigningIn}
+                      disabled={isConnecting}
                     >
                       <Wallet aria-hidden="true" />
                       Connect wallet
@@ -484,15 +382,15 @@ export default function AppHeader() {
       <Dialog open={showModal} onOpenChange={setShowModal}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Connect wallet</DialogTitle>
+            <DialogTitle>Connect a wallet</DialogTitle>
             <DialogDescription>
-              Sign a message to verify wallet ownership. No transaction or gas
-              fee is required.
+              Pick any EVM wallet and sign a gas-free message to prove ownership
+              (Sign-In with Ethereum). No transaction is sent.
             </DialogDescription>
           </DialogHeader>
 
           {error && (
-            <div className="flex gap-3 border border-[#d36c72]/55 bg-[#d36c72]/10 p-3 text-sm text-[#efa2a7]">
+            <div className="flex gap-3 rounded-[0.65rem] border border-[#d36c72]/55 bg-[#d36c72]/10 p-3 text-sm text-[#efa2a7]">
               <CircleAlert
                 className="mt-0.5 size-4 shrink-0"
                 aria-hidden="true"
@@ -502,42 +400,96 @@ export default function AppHeader() {
           )}
 
           <div className="space-y-2">
-            {walletOptions.map((option) => {
-              const Icon = option.icon;
-              return (
-                <Button
-                  key={option.id}
-                  variant="outline"
-                  className="h-auto w-full justify-start gap-3 px-4 py-3 text-left"
-                  onClick={() => handleWalletSelect(option)}
-                >
-                  <span className="flex size-9 shrink-0 items-center justify-center border border-border bg-secondary text-primary">
-                    <Icon className="size-4" aria-hidden="true" />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-sm text-foreground">
-                      {option.name}
-                    </span>
-                    <span className="block text-xs font-normal text-muted-foreground">
-                      {option.description}
-                    </span>
-                  </span>
-                </Button>
-              );
-            })}
+            {injectedWallets.map((wallet) => (
+              <WalletOptionButton
+                key={wallet.info.uuid}
+                name={wallet.info.name}
+                subtitle="Browser extension"
+                loading={connectingId === wallet.info.rdns}
+                disabled={isConnecting}
+                onClick={() => connectInjected(wallet)}
+                iconUrl={wallet.info.icon}
+              />
+            ))}
+
+            {injectedWallets.length === 0 && hasLegacyInjected && (
+              <WalletOptionButton
+                name="Browser wallet"
+                subtitle="Injected provider"
+                loading={connectingId === "legacy"}
+                disabled={isConnecting}
+                onClick={connectLegacy}
+                icon={<Wallet className="size-4" aria-hidden="true" />}
+              />
+            )}
+
+            <WalletOptionButton
+              name="WalletConnect"
+              subtitle="Scan with a mobile wallet"
+              loading={connectingId === "walletconnect"}
+              disabled={isConnecting}
+              onClick={connectWalletConnect}
+              icon={<QrCode className="size-4" aria-hidden="true" />}
+            />
           </div>
 
-          <a
-            href="https://metamask.io"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary"
-          >
-            Need a browser wallet? Get MetaMask
-            <ExternalLink className="size-3" aria-hidden="true" />
-          </a>
+          {injectedWallets.length === 0 && !hasLegacyInjected && (
+            <a
+              href="https://ethereum.org/en/wallets/find-wallet/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary"
+            >
+              No wallet detected? Find an EVM wallet
+              <ExternalLink className="size-3" aria-hidden="true" />
+            </a>
+          )}
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+function WalletOptionButton({
+  name,
+  subtitle,
+  loading,
+  disabled,
+  onClick,
+  iconUrl,
+  icon,
+}: {
+  name: string;
+  subtitle: string;
+  loading: boolean;
+  disabled: boolean;
+  onClick: () => void;
+  iconUrl?: string;
+  icon?: ReactNode;
+}) {
+  return (
+    <Button
+      variant="outline"
+      className="h-auto w-full justify-start gap-3 px-4 py-3 text-left"
+      onClick={onClick}
+      disabled={disabled}
+    >
+      <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-[0.6rem] border border-border bg-secondary text-primary">
+        {loading ? (
+          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+        ) : iconUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={iconUrl} alt="" className="size-5 object-contain" />
+        ) : (
+          icon
+        )}
+      </span>
+      <span className="min-w-0">
+        <span className="block text-sm text-foreground">{name}</span>
+        <span className="block text-xs font-normal text-muted-foreground">
+          {subtitle}
+        </span>
+      </span>
+    </Button>
   );
 }

@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Bot, RadioTower, Search, SlidersHorizontal } from "lucide-react";
-import AgentCard from "@/components/AgentCard";
+import AgentRow from "@/components/AgentRow";
 import { EmptyState } from "@/components/EmptyState";
+import { Reveal } from "@/components/exagora/Reveal";
 import { PageHeader } from "@/components/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { BRAND } from "@/lib/brand";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   AGENT_REGISTRY_ABI,
@@ -94,38 +96,63 @@ export default function AgentsPage() {
     loadAgents();
   }, []);
 
-  const filtered = agents.filter((agent) => {
-    const searchValue = search.toLowerCase();
-    const skillValue = skillFilter.toLowerCase();
-    const matchSearch =
-      !search ||
-      agent.name.toLowerCase().includes(searchValue) ||
-      agent.description.toLowerCase().includes(searchValue);
-    const matchSkill =
-      !skillFilter ||
-      agent.skills.some((skill) => skill.toLowerCase().includes(skillValue));
-    return matchSearch && matchSkill;
-  });
+  const reputationScore = (agent: AgentSummary) =>
+    Number(agent.verificationStats?.totalReceipts ?? BigInt(0)) * 1000 +
+    Number(agent.averageRating) * 5 +
+    Number(agent.completedTasks);
+
+  const filtered = agents
+    .filter((agent) => {
+      const searchValue = search.toLowerCase();
+      const skillValue = skillFilter.toLowerCase();
+      const matchSearch =
+        !search ||
+        agent.name.toLowerCase().includes(searchValue) ||
+        agent.description.toLowerCase().includes(searchValue);
+      const matchSkill =
+        !skillFilter ||
+        agent.skills.some((skill) => skill.toLowerCase().includes(skillValue));
+      return matchSearch && matchSkill;
+    })
+    .sort((a, b) => reputationScore(b) - reputationScore(a));
 
   const clearFilters = () => {
     setSearch("");
     setSkillFilter("");
   };
 
+  const verifiedAgents = agents.filter(
+    (agent) => Number(agent.verificationStats?.totalReceipts ?? BigInt(0)) > 0,
+  ).length;
+  const activeAgents = agents.filter((agent) => agent.isActive).length;
+
   return (
-    <div className="app-container py-10 sm:py-14">
+    <div
+      className="app-container py-10 sm:py-14"
+      style={{ ["--page-accent" as string]: "var(--accent-cyan)" }}
+    >
       <PageHeader
         eyebrow="Marketplace"
         title="Browse agents"
+        accent="cyan"
         description="Compare autonomous specialists by capability, price, reputation, and proof-backed work history."
         action={
           <Button asChild>
             <Link href="/register">Register an agent</Link>
           </Button>
         }
+        stats={
+          agents.length > 0
+            ? [
+                { label: "agents", value: agents.length },
+                { label: "active", value: activeAgents },
+                { label: "verified", value: verifiedAgents },
+              ]
+            : undefined
+        }
       />
 
-      <div className="mt-8 flex flex-col gap-4 border border-border/70 bg-[#0b192d] p-4 sm:flex-row sm:items-center">
+      <div className="mt-8 flex flex-col gap-4 rounded-[1.15rem] border border-primary/20 bg-gradient-to-b from-[#18365a]/25 to-[#0b192d]/80 p-4 shadow-[3px_3px_0_#040c18] backdrop-blur-md transition-colors duration-300 focus-within:border-[#7fe3d4]/45 sm:flex-row sm:items-center">
         <div className="relative min-w-0 flex-1">
           <Search
             className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
@@ -164,22 +191,19 @@ export default function AgentsPage() {
 
       <div className="mt-8">
         {isLoading ? (
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+          <div className="space-y-3">
             {Array.from({ length: 6 }).map((_, index) => (
               <div
                 key={index}
-                className="brutal-surface min-h-[22rem] space-y-5 p-5"
+                className="flex items-center gap-4 rounded-[1.15rem] border border-border/60 bg-[#0b192d]/60 p-5"
               >
-                <div className="flex justify-between">
-                  <div className="space-y-2">
-                    <Skeleton className="h-5 w-36 rounded-[2px] bg-primary/10" />
-                    <Skeleton className="h-3 w-28 rounded-[2px] bg-primary/10" />
-                  </div>
-                  <Skeleton className="h-7 w-16 rounded-[2px] bg-primary/10" />
+                <Skeleton className="size-14 shrink-0 rounded-[0.85rem] bg-primary/10" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-40 rounded-full bg-primary/10" />
+                  <Skeleton className="h-3 w-full max-w-md rounded-full bg-primary/10" />
+                  <Skeleton className="h-3 w-32 rounded-full bg-primary/10" />
                 </div>
-                <Skeleton className="h-12 w-full rounded-[2px] bg-primary/10" />
-                <Skeleton className="h-14 w-full rounded-[2px] bg-primary/10" />
-                <Skeleton className="mt-16 h-12 w-full rounded-[2px] bg-primary/10" />
+                <Skeleton className="hidden h-7 w-16 rounded-full bg-primary/10 sm:block" />
               </div>
             ))}
           </div>
@@ -197,7 +221,7 @@ export default function AgentsPage() {
           <EmptyState
             icon={Bot}
             title="No agents registered yet"
-            description="Register the first autonomous specialist on this Arc Agent Market deployment."
+            description={`Register the first autonomous specialist on this ${BRAND.name} deployment.`}
             action={
               <Button asChild>
                 <Link href="/register">Register an agent</Link>
@@ -216,9 +240,20 @@ export default function AgentsPage() {
             }
           />
         ) : (
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((agent) => (
-              <AgentCard key={agent.address} {...agent} />
+          <div className="space-y-3">
+            <p className="mb-1 flex items-center gap-2 px-1 font-mono text-[11px] uppercase tracking-[0.14em] text-[#5f82a6]">
+              <span className="h-px w-6 bg-[var(--page-accent)]/60" />
+              Ranked by verified work &amp; reputation
+            </p>
+            {filtered.map((agent, index) => (
+              <Reveal
+                key={agent.address}
+                delay={Math.min(index, 10) * 45}
+                variant={index % 2 === 0 ? "left" : "right"}
+                className="block"
+              >
+                <AgentRow rank={index + 1} {...agent} />
+              </Reveal>
             ))}
           </div>
         )}
