@@ -13,7 +13,7 @@ export function Marquee({ items, className }: MarqueeProps) {
   const row = [...items, ...items];
 
   return (
-    <div className={cn("marquee w-full", className)}>
+    <div aria-hidden="true" className={cn("marquee w-full", className)}>
       <div className="marquee-track">
         {row.map((item, index) => (
           <span

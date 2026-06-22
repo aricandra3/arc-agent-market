@@ -26,21 +26,25 @@ const states = {
     label: "Waiting for wallet signature",
     icon: LoaderCircle,
     className: "text-[#c7dbf4]",
+    accent: "var(--accent-azure)",
   },
   submitted: {
     label: "Transaction submitted",
     icon: Radio,
     className: "text-[#c7dbf4]",
+    accent: "var(--accent-cyan)",
   },
   confirmed: {
     label: "Transaction confirmed",
     icon: CircleCheck,
     className: "text-[#9cd4cc]",
+    accent: "#6eb8ad",
   },
   failed: {
     label: "Transaction failed",
     icon: CircleAlert,
     className: "text-[#efa2a7]",
+    accent: "#d36c72",
   },
 } as const;
 
@@ -58,7 +62,12 @@ export function TransactionState({
 
   return (
     <ActiveBorder active={phase === "signing" || phase === "submitted"}>
-      <div className="min-h-16 p-4" aria-live="polite">
+      <div className="relative min-h-16 p-4 pl-5" aria-live="polite">
+        <span
+          aria-hidden="true"
+          className="absolute inset-y-0 left-0 w-1"
+          style={{ background: state.accent }}
+        />
         <div className={cn("flex items-start gap-3", state.className)}>
           <Icon
             className={cn(

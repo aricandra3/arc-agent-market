@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  ChevronRight,
   CircleAlert,
   ExternalLink,
   Loader2,
@@ -10,6 +11,7 @@ import {
   Menu,
   QrCode,
   Radio,
+  ShieldCheck,
   Wallet,
 } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
@@ -41,6 +43,7 @@ import { BRAND } from "@/lib/brand";
 import { arcTestnet, shortAddress } from "@/lib/contracts";
 import {
   clearSession,
+  ensureArcChain,
   loadSession,
   signInWithEthereum,
   type Eip1193Provider,
@@ -65,9 +68,12 @@ const navItems = [
 
 export default function AppHeader() {
   const pathname = usePathname();
-  const { address, isConnected, setConnected, setDisconnected } =
+  const { address, chainId, isConnected, setConnected, setDisconnected } =
     useWalletStore();
   const injectedWallets = useInjectedWallets();
+
+  const wrongNetwork =
+    isConnected && chainId !== null && chainId !== arcTestnet.id;
 
   const [connectingId, setConnectingId] = useState<string | null>(null);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -86,6 +92,14 @@ export default function AppHeader() {
     setActiveProvider(null);
     setDisconnected();
   }, [setDisconnected]);
+
+  const handleSwitchNetwork = useCallback(async () => {
+    if (!activeProvider) {
+      toast.message("Open your wallet and switch to Arc Testnet.");
+      return;
+    }
+    await ensureArcChain(activeProvider);
+  }, [activeProvider]);
 
   // Restore a previous SIWE session on load.
   useEffect(() => {
@@ -109,7 +123,7 @@ export default function AppHeader() {
         toast.message("Wallet disconnected");
       } else {
         handleDisconnect();
-        toast.message("Account changed — please reconnect to continue.");
+        toast.message("Account changed. Reconnect to continue.");
       }
     };
     const onChainChanged = (...args: unknown[]) => {
@@ -255,16 +269,20 @@ export default function AppHeader() {
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="hidden items-center gap-2 border-r border-border/60 pr-3 lg:flex">
-              <Radio className="size-3.5 text-[#6eb8ad]" aria-hidden="true" />
-              <span className="font-mono text-[10px] text-muted-foreground">
+            <span className="hidden items-center gap-1.5 rounded-full border border-[#6eb8ad]/40 bg-[#6eb8ad]/10 px-2.5 py-1 lg:inline-flex">
+              <span className="relative flex size-1.5">
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-[#6eb8ad] opacity-75" />
+                <span className="relative inline-flex size-1.5 rounded-full bg-[#6eb8ad]" />
+              </span>
+              <span className="font-mono text-[10px] tracking-wide text-[#9cd4cc]">
                 Arc Testnet
               </span>
-            </div>
+            </span>
 
             {isConnected ? (
               <div className="hidden items-center gap-2 md:flex">
-                <span className="font-mono text-xs text-muted-foreground">
+                <span className="inline-flex items-center gap-2 rounded-full border-[1.5px] border-[#04101f] bg-[#6eb8ad] px-3 py-1.5 font-mono text-xs font-semibold text-[#071426] shadow-[2px_2px_0_#040c18]">
+                  <span className="size-1.5 rounded-full bg-[#071426]" />
                   {shortAddress(address ?? "")}
                 </span>
                 <Tooltip>
@@ -311,7 +329,7 @@ export default function AppHeader() {
               <SheetContent className="w-[min(88vw,22rem)]">
                 <SheetHeader className="border-b border-border/60 px-5 py-5 text-left">
                   <SheetTitle className="flex items-center gap-2">
-                    <ExAgoraMark className="text-primary" />
+                    <ExAgoraMark />
                     {BRAND.name}
                   </SheetTitle>
                   <SheetDescription>{BRAND.descriptor}</SheetDescription>
@@ -377,20 +395,56 @@ export default function AppHeader() {
             </Sheet>
           </div>
         </div>
+
+        {wrongNetwork && (
+          <div
+            role="alert"
+            className="mx-auto mt-2 flex max-w-7xl flex-col items-start gap-2 rounded-[0.7rem] border border-[#d4ad6f]/50 bg-[#2a2113]/85 px-4 py-2.5 text-sm text-[#e7c992] backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between"
+          >
+            <span className="flex items-center gap-2">
+              <CircleAlert className="size-4 shrink-0" aria-hidden="true" />
+              Wrong network. Switch to Arc Testnet to transact.
+            </span>
+            <Button
+              size="xs"
+              variant="outline"
+              className="border-[#d4ad6f]/55 text-[#e7c992]"
+              onClick={handleSwitchNetwork}
+            >
+              Switch to Arc Testnet
+            </Button>
+          </div>
+        )}
       </header>
 
       <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Connect a wallet</DialogTitle>
-            <DialogDescription>
-              Pick any EVM wallet and sign a gas-free message to prove ownership
-              (Sign-In with Ethereum). No transaction is sent.
+        <DialogContent className="overflow-hidden">
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 -top-20 h-40 bg-[radial-gradient(50%_100%_at_50%_0%,color-mix(in_srgb,var(--accent-cyan)_16%,transparent),transparent_72%)]"
+          />
+          <DialogHeader className="relative">
+            <span
+              className="sticker-chip mb-3 w-fit"
+              style={{ ["--chip-bg" as string]: "var(--accent-cyan)" }}
+            >
+              <ShieldCheck className="size-3.5" aria-hidden="true" />
+              Gas-free · SIWE
+            </span>
+            <DialogTitle className="font-display flex items-center gap-3 text-2xl">
+              <span className="grid size-10 shrink-0 place-items-center rounded-[0.7rem] border-[1.5px] border-[#04101f] bg-[var(--accent-cyan)] text-[#071426] shadow-[2px_2px_0_#040c18]">
+                <Wallet className="size-5" aria-hidden="true" />
+              </span>
+              Connect a wallet
+            </DialogTitle>
+            <DialogDescription className="text-sm">
+              Pick any EVM wallet and sign a message to prove ownership. No
+              transaction or gas fee.
             </DialogDescription>
           </DialogHeader>
 
           {error && (
-            <div className="flex gap-3 rounded-[0.65rem] border border-[#d36c72]/55 bg-[#d36c72]/10 p-3 text-sm text-[#efa2a7]">
+            <div className="relative flex gap-3 rounded-[0.65rem] border border-[#d36c72]/55 bg-[#d36c72]/10 p-3 text-sm text-[#efa2a7]">
               <CircleAlert
                 className="mt-0.5 size-4 shrink-0"
                 aria-hidden="true"
@@ -399,7 +453,7 @@ export default function AppHeader() {
             </div>
           )}
 
-          <div className="space-y-2">
+          <div className="relative space-y-2">
             {injectedWallets.map((wallet) => (
               <WalletOptionButton
                 key={wallet.info.uuid}
@@ -409,6 +463,7 @@ export default function AppHeader() {
                 disabled={isConnecting}
                 onClick={() => connectInjected(wallet)}
                 iconUrl={wallet.info.icon}
+                detected
               />
             ))}
 
@@ -420,6 +475,8 @@ export default function AppHeader() {
                 disabled={isConnecting}
                 onClick={connectLegacy}
                 icon={<Wallet className="size-4" aria-hidden="true" />}
+                accent="var(--accent-cyan)"
+                detected
               />
             )}
 
@@ -430,19 +487,29 @@ export default function AppHeader() {
               disabled={isConnecting}
               onClick={connectWalletConnect}
               icon={<QrCode className="size-4" aria-hidden="true" />}
+              accent="var(--accent-azure)"
             />
           </div>
 
-          {injectedWallets.length === 0 && !hasLegacyInjected && (
+          {injectedWallets.length === 0 && !hasLegacyInjected ? (
             <a
               href="https://ethereum.org/en/wallets/find-wallet/"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary"
+              className="relative inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary"
             >
               No wallet detected? Find an EVM wallet
               <ExternalLink className="size-3" aria-hidden="true" />
             </a>
+          ) : (
+            <div className="relative flex items-center gap-2 rounded-[0.65rem] border border-border/50 bg-[#0b192d]/60 px-3 py-2.5 text-[11px] text-muted-foreground">
+              <ShieldCheck
+                className="size-3.5 shrink-0 text-[#6eb8ad]"
+                aria-hidden="true"
+              />
+              Signing is free and only proves wallet ownership. Your keys never
+              leave your wallet.
+            </div>
           )}
         </DialogContent>
       </Dialog>
@@ -458,6 +525,8 @@ function WalletOptionButton({
   onClick,
   iconUrl,
   icon,
+  accent,
+  detected = false,
 }: {
   name: string;
   subtitle: string;
@@ -466,30 +535,50 @@ function WalletOptionButton({
   onClick: () => void;
   iconUrl?: string;
   icon?: ReactNode;
+  accent?: string;
+  detected?: boolean;
 }) {
   return (
-    <Button
-      variant="outline"
-      className="h-auto w-full justify-start gap-3 px-4 py-3 text-left"
+    <button
+      type="button"
       onClick={onClick}
       disabled={disabled}
+      className="group/wallet flex w-full items-center gap-3 rounded-[0.8rem] border border-border bg-[#0b192d]/60 px-3.5 py-3 text-left transition-[transform,border-color,box-shadow] duration-150 hover:-translate-y-px hover:border-[#7fe3d4]/50 hover:shadow-[3px_3px_0_#040c18] focus-visible:border-[#7fe3d4]/60 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-60"
     >
-      <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-[0.6rem] border border-border bg-secondary text-primary">
+      <span
+        className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-[0.6rem] border-[1.5px] border-[#04101f] text-[#071426] shadow-[2px_2px_0_#040c18]"
+        style={{ background: accent ?? "#16314f" }}
+      >
         {loading ? (
-          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+          <Loader2
+            className={accent ? "size-4 animate-spin" : "size-4 animate-spin text-[#9fc1df]"}
+            aria-hidden="true"
+          />
         ) : iconUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={iconUrl} alt="" className="size-5 object-contain" />
+          <img src={iconUrl} alt="" className="size-6 object-contain" />
         ) : (
           icon
         )}
       </span>
-      <span className="min-w-0">
-        <span className="block text-sm text-foreground">{name}</span>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          {name}
+          {detected && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#6eb8ad]/15 px-1.5 py-px text-[9px] font-medium tracking-wide text-[#9cd4cc] uppercase">
+              <span className="size-1 rounded-full bg-[#6eb8ad]" />
+              Detected
+            </span>
+          )}
+        </span>
         <span className="block text-xs font-normal text-muted-foreground">
           {subtitle}
         </span>
       </span>
-    </Button>
+      <ChevronRight
+        className="size-4 shrink-0 text-muted-foreground transition-transform duration-150 group-hover/wallet:translate-x-0.5 group-hover/wallet:text-[#7fe3d4]"
+        aria-hidden="true"
+      />
+    </button>
   );
 }

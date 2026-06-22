@@ -72,7 +72,7 @@ export function NetworkSnapshot({
               <span>{label}</span>
             </div>
             {isLoading ? (
-              <Skeleton className="mt-3 h-7 w-24 rounded-[2px] bg-primary/10" />
+              <Skeleton className="mt-3 h-7 w-24 rounded-lg bg-primary/10" />
             ) : value === null ? (
               <p className="mt-3 font-mono text-base font-semibold text-[#caa874]">
                 {volume ?? "Not indexed"}

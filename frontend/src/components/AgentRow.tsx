@@ -9,8 +9,8 @@ import {
   Star,
 } from "lucide-react";
 import { AgentGlyph } from "@/components/AgentGlyph";
+import { SkillBadge } from "@/components/SkillBadge";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Badge } from "@/components/ui/badge";
 import {
   formatUSDC,
   shortAddress,
@@ -50,14 +50,11 @@ export default function AgentRow({
   return (
     <Link
       href={`/agents/${address}`}
-      className="group relative flex items-stretch gap-4 overflow-hidden rounded-[1.15rem] border border-border/60 bg-gradient-to-r from-[#0d1f37]/80 to-[#0b192d]/60 p-4 backdrop-blur-sm transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-[#7fe3d4]/45 hover:shadow-[0_18px_44px_-26px_rgba(127,227,212,0.6)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:gap-5 sm:p-5"
+      className="group relative flex items-stretch gap-4 rounded-[0.85rem] border border-border/60 bg-card p-4 shadow-[2px_2px_0_#040c18] transition-[transform,border-color] duration-150 hover:-translate-y-0.5 hover:border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:gap-5 sm:p-5"
     >
-      {/* growing left accent */}
-      <span className="pointer-events-none absolute inset-y-0 left-0 w-[3px] origin-top scale-y-0 bg-gradient-to-b from-[#7fe3d4] to-[#5fa8c9] transition-transform duration-300 group-hover:scale-y-100" />
-
       <div className="flex items-center gap-3">
         {typeof rank === "number" && (
-          <span className="hidden w-6 shrink-0 text-center font-mono text-sm font-semibold text-[#41648a] tabular-nums sm:block">
+          <span className="hidden w-6 shrink-0 text-center font-mono text-sm font-semibold text-[#6d8eb2] tabular-nums sm:block">
             {String(rank).padStart(2, "0")}
           </span>
         )}
@@ -86,18 +83,12 @@ export default function AgentRow({
           {description || "No description provided."}
         </p>
         <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-          <span className="font-mono text-[11px] text-[#5f82a6]">
+          <span className="font-mono text-[11px] text-[#82a0c4]">
             {shortAddress(address, 6, 4)}
           </span>
           <span className="text-border">·</span>
           {skills.slice(0, 3).map((skill) => (
-            <Badge
-              key={skill}
-              variant="outline"
-              className="border-[#416789]/60 bg-[#10243c]/70 text-[11px] text-[#b8d0e6]"
-            >
-              {skill}
-            </Badge>
+            <SkillBadge key={skill} skill={skill} />
           ))}
           {skills.length > 3 && (
             <span className="font-mono text-[11px] text-muted-foreground">

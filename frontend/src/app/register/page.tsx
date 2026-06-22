@@ -1,6 +1,5 @@
 "use client";
 
-import { Eyebrow } from "@/components/Eyebrow";
 import Link from "next/link";
 import { useState } from "react";
 import {
@@ -17,6 +16,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { Reveal } from "@/components/exagora/Reveal";
 import { TransactionButton } from "@/components/exagora/TransactionButton";
 import { PageHeader } from "@/components/PageHeader";
+import { useWrongNetwork } from "@/lib/useWrongNetwork";
 import {
   TransactionState,
   type TransactionPhase,
@@ -61,6 +61,7 @@ const SKILL_OPTIONS = [
 
 export default function RegisterPage() {
   const { address, isConnected } = useWalletStore();
+  const wrongNetwork = useWrongNetwork();
   const [form, setForm] = useState({
     name: "",
     description: "",
@@ -161,7 +162,7 @@ export default function RegisterPage() {
           <div className="flex size-11 items-center justify-center border border-[#6eb8ad]/60 bg-[#6eb8ad]/10 text-[#9cd4cc]">
             <CircleCheck className="size-5" aria-hidden="true" />
           </div>
-          <Eyebrow className="mt-7">Registration submitted</Eyebrow>
+          <p className="mt-7 text-sm font-semibold text-foreground">Registration submitted</p>
           <h1 className="mt-2 text-3xl font-semibold text-foreground">
             {form.name} is entering the market.
           </h1>
@@ -204,7 +205,7 @@ export default function RegisterPage() {
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-6">
         <Reveal className="brutal-surface block p-5 sm:p-7">
-          <SectionTitle number="01" title="Identity" />
+          <SectionTitle title="Identity" />
           <div className="mt-6 grid gap-5">
             <Field label="Agent name" htmlFor="agent-name" required>
               <Input
@@ -232,7 +233,7 @@ export default function RegisterPage() {
         </Reveal>
 
         <Reveal className="brutal-surface block p-5 sm:p-7">
-          <SectionTitle number="02" title="Capabilities" />
+          <SectionTitle title="Capabilities" />
           <p className="mt-3 text-sm text-muted-foreground">
             Select at least one capability buyers can use for discovery.
           </p>
@@ -266,7 +267,7 @@ export default function RegisterPage() {
         </Reveal>
 
         <Reveal className="brutal-surface block p-5 sm:p-7">
-          <SectionTitle number="03" title="Pricing" />
+          <SectionTitle title="Pricing" />
           <div className="mt-6 grid gap-5 sm:grid-cols-2">
             <Field label="Rate per task (USDC)" htmlFor="rate-task">
               <Input
@@ -298,7 +299,7 @@ export default function RegisterPage() {
         </Reveal>
 
         <Reveal className="brutal-surface block p-5 sm:p-7">
-          <SectionTitle number="04" title="Wallet summary" />
+          <SectionTitle title="Wallet summary" />
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
             <div>
               <p className="text-xs text-muted-foreground">Network</p>
@@ -329,11 +330,16 @@ export default function RegisterPage() {
             type="submit"
             size="lg"
             className="mt-5 w-full"
-            disabled={isBusy || form.skills.length === 0 || !form.name.trim()}
+            disabled={
+              isBusy ||
+              form.skills.length === 0 ||
+              !form.name.trim() ||
+              wrongNetwork
+            }
             submittedLabel="Registration submitted"
           >
             <CircleDollarSign aria-hidden="true" />
-            Register on Arc Testnet
+            {wrongNetwork ? "Switch to Arc Testnet first" : "Register on Arc Testnet"}
           </TransactionButton>
           <a
             href="https://testnet.arcscan.app"
@@ -350,15 +356,8 @@ export default function RegisterPage() {
   );
 }
 
-function SectionTitle({ number, title }: { number: string; title: string }) {
-  return (
-    <div className="flex items-center gap-3">
-      <span className="grid size-9 shrink-0 place-items-center rounded-[0.65rem] border-[1.5px] border-[#04101f] bg-[var(--page-accent)] font-mono text-sm font-bold text-[#071426] shadow-[2px_2px_0_#040c18]">
-        {number}
-      </span>
-      <h2 className="font-display text-xl text-foreground">{title}</h2>
-    </div>
-  );
+function SectionTitle({ title }: { title: string }) {
+  return <h2 className="font-display text-xl text-foreground">{title}</h2>;
 }
 
 function Field({

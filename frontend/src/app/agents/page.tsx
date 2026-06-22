@@ -51,40 +51,47 @@ export default function AgentsPage() {
           functionName: "getAgentCount",
         });
 
-        const loaded: AgentSummary[] = [];
-        for (let i = 0; i < Number(count); i++) {
-          try {
-            const addr = await publicClient.readContract({
-              address: CONTRACTS.AGENT_REGISTRY,
-              abi: AGENT_REGISTRY_ABI,
-              functionName: "getAgentByIndex",
-              args: [BigInt(i)],
-            });
-            const data = await publicClient.readContract({
-              address: CONTRACTS.AGENT_REGISTRY,
-              abi: AGENT_REGISTRY_ABI,
-              functionName: "getAgent",
-              args: [addr],
-            });
-            loaded.push({
-              address: addr,
-              name: data[0],
-              description: data[1],
-              skills: [...data[2]],
-              ratePerTask: data[3],
-              ratePerCall: data[4],
-              completedTasks: data[5],
-              totalEarnings: data[6],
-              averageRating: data[7],
-              ratingCount: data[8],
-              isActive: data[9],
-              verificationStats: await loadAgentVerificationStats(addr),
-            });
-          } catch (agentError) {
-            console.error(`Failed to load agent ${i}:`, agentError);
-          }
-        }
-        setAgents(loaded);
+        const loaded = await Promise.all(
+          Array.from(
+            { length: Number(count) },
+            async (_, i): Promise<AgentSummary | null> => {
+              try {
+                const addr = await publicClient.readContract({
+                  address: CONTRACTS.AGENT_REGISTRY,
+                  abi: AGENT_REGISTRY_ABI,
+                  functionName: "getAgentByIndex",
+                  args: [BigInt(i)],
+                });
+                const data = await publicClient.readContract({
+                  address: CONTRACTS.AGENT_REGISTRY,
+                  abi: AGENT_REGISTRY_ABI,
+                  functionName: "getAgent",
+                  args: [addr],
+                });
+                return {
+                  address: addr,
+                  name: data[0],
+                  description: data[1],
+                  skills: [...data[2]],
+                  ratePerTask: data[3],
+                  ratePerCall: data[4],
+                  completedTasks: data[5],
+                  totalEarnings: data[6],
+                  averageRating: data[7],
+                  ratingCount: data[8],
+                  isActive: data[9],
+                  verificationStats: await loadAgentVerificationStats(addr),
+                };
+              } catch (agentError) {
+                console.error(`Failed to load agent ${i}:`, agentError);
+                return null;
+              }
+            },
+          ),
+        );
+        setAgents(
+          loaded.filter((agent): agent is AgentSummary => agent !== null),
+        );
       } catch (error) {
         console.error("Failed to load agents:", error);
         setLoadError("Agent records could not be loaded from Arc testnet.");
@@ -152,7 +159,7 @@ export default function AgentsPage() {
         }
       />
 
-      <div className="mt-8 flex flex-col gap-4 rounded-[1.15rem] border border-primary/20 bg-gradient-to-b from-[#18365a]/25 to-[#0b192d]/80 p-4 shadow-[3px_3px_0_#040c18] backdrop-blur-md transition-colors duration-300 focus-within:border-[#7fe3d4]/45 sm:flex-row sm:items-center">
+      <div className="mt-8 flex flex-col gap-4 rounded-[0.85rem] border border-primary/20 bg-gradient-to-b from-[#18365a]/25 to-[#0b192d]/80 p-4 shadow-[3px_3px_0_#040c18] transition-colors duration-300 focus-within:border-[#7fe3d4]/45 sm:flex-row sm:items-center">
         <div className="relative min-w-0 flex-1">
           <Search
             className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
@@ -195,7 +202,7 @@ export default function AgentsPage() {
             {Array.from({ length: 6 }).map((_, index) => (
               <div
                 key={index}
-                className="flex items-center gap-4 rounded-[1.15rem] border border-border/60 bg-[#0b192d]/60 p-5"
+                className="flex items-center gap-4 rounded-[0.85rem] border border-border/60 bg-[#0b192d]/60 p-5"
               >
                 <Skeleton className="size-14 shrink-0 rounded-[0.85rem] bg-primary/10" />
                 <div className="flex-1 space-y-2">
@@ -241,7 +248,7 @@ export default function AgentsPage() {
           />
         ) : (
           <div className="space-y-3">
-            <p className="mb-1 flex items-center gap-2 px-1 font-mono text-[11px] uppercase tracking-[0.14em] text-[#5f82a6]">
+            <p className="mb-1 flex items-center gap-2 px-1 font-mono text-[11px] uppercase tracking-[0.14em] text-[#82a0c4]">
               <span className="h-px w-6 bg-[var(--page-accent)]/60" />
               Ranked by verified work &amp; reputation
             </p>

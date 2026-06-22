@@ -32,9 +32,13 @@ export function WorkReceiptPanel({
     <section className="brutal-surface p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-            <FileCheck2 className="size-4 text-primary" aria-hidden="true" />
-            Proof receipt
+          <div className="flex items-center gap-2.5">
+            <span className="grid size-8 shrink-0 place-items-center rounded-[0.55rem] border-[1.5px] border-[#04101f] bg-[var(--page-accent,var(--accent-azure))] text-[#071426] shadow-[2px_2px_0_#040c18]">
+              <FileCheck2 className="size-4" aria-hidden="true" />
+            </span>
+            <span className="font-display text-lg text-foreground">
+              Proof receipt
+            </span>
           </div>
           <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
             {receipt

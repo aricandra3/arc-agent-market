@@ -1,6 +1,5 @@
 "use client";
 
-import { Eyebrow } from "@/components/Eyebrow";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
@@ -19,6 +18,7 @@ import { MarketplaceHoverGrid } from "@/components/exagora/MarketplaceHoverGrid"
 import { Reveal } from "@/components/exagora/Reveal";
 import { PageHeader } from "@/components/PageHeader";
 import TaskCard from "@/components/TaskCard";
+import { SkillBadge } from "@/components/SkillBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -214,9 +214,9 @@ export default function DashboardPage() {
   if (isLoading) {
     return (
       <div className="app-container space-y-7 py-10 sm:py-14">
-        <Skeleton className="h-28 rounded-[2px] bg-primary/10" />
-        <Skeleton className="h-48 rounded-[2px] bg-primary/10" />
-        <Skeleton className="h-64 rounded-[2px] bg-primary/10" />
+        <Skeleton className="h-28 rounded-lg bg-primary/10" />
+        <Skeleton className="h-48 rounded-lg bg-primary/10" />
+        <Skeleton className="h-64 rounded-lg bg-primary/10" />
       </div>
     );
   }
@@ -264,10 +264,6 @@ export default function DashboardPage() {
       )}
 
       <Reveal className="mt-7 brutal-surface block">
-        <span
-          aria-hidden="true"
-          className="absolute inset-x-0 top-0 z-[1] h-1.5 bg-[var(--page-accent)]"
-        />
         {agent ? (
           <>
             <div className="flex flex-col gap-5 border-b border-border/55 p-5 sm:flex-row sm:items-start sm:justify-between sm:p-6">
@@ -286,13 +282,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
                   {agent.skills.map((skill) => (
-                    <Badge
-                      key={skill}
-                      variant="outline"
-                      className="border-[#416789]/70 bg-[#10243c] text-[#b8d0e6]"
-                    >
-                      {skill}
-                    </Badge>
+                    <SkillBadge key={skill} skill={skill} className="px-3 py-1 text-xs" />
                   ))}
                 </div>
               </div>
@@ -356,7 +346,7 @@ export default function DashboardPage() {
         ) : (
           <div className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <Eyebrow>Agent identity</Eyebrow>
+              <p className="text-sm font-semibold text-foreground">Agent identity</p>
               <h2 className="mt-2 font-display text-xl font-semibold text-foreground">
                 Add a provider profile
               </h2>
@@ -366,7 +356,7 @@ export default function DashboardPage() {
               </p>
             </div>
             <Button asChild>
-              <Link href="/register">Register agent</Link>
+              <Link href="/register">Register an agent</Link>
             </Button>
           </div>
         )}
@@ -375,21 +365,27 @@ export default function DashboardPage() {
       <Tabs defaultValue="requested" className="mt-9">
         <div className="flex flex-col gap-4 border-b border-border/65 pb-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <Eyebrow>Task ledger</Eyebrow>
+            <p className="text-sm font-semibold text-foreground">Task ledger</p>
             <h2 className="mt-2 font-display text-xl font-semibold text-foreground">
               Active work records
             </h2>
           </div>
-          <TabsList variant="line" className="h-auto gap-5 p-0">
-            <TabsTrigger value="requested" className="px-0 pb-2">
+          <TabsList className="h-auto gap-1 rounded-full border border-border/60 bg-[#0b192d]/70 p-1">
+            <TabsTrigger
+              value="requested"
+              className="gap-2 rounded-full px-4 py-1.5 text-sm font-semibold text-muted-foreground transition-all data-[state=active]:!border-[#04101f] data-[state=active]:!bg-[var(--page-accent)] data-[state=active]:!text-[#071426] data-[state=active]:!shadow-[2px_2px_0_#040c18]"
+            >
               Requested
-              <span className="font-mono text-xs text-muted-foreground">
+              <span className="rounded-full bg-current/15 px-1.5 py-0.5 font-mono text-[11px] tabular-nums">
                 {requestedTasks.length}
               </span>
             </TabsTrigger>
-            <TabsTrigger value="provider" className="px-0 pb-2">
+            <TabsTrigger
+              value="provider"
+              className="gap-2 rounded-full px-4 py-1.5 text-sm font-semibold text-muted-foreground transition-all data-[state=active]:!border-[#04101f] data-[state=active]:!bg-[var(--page-accent)] data-[state=active]:!text-[#071426] data-[state=active]:!shadow-[2px_2px_0_#040c18]"
+            >
               Provider
-              <span className="font-mono text-xs text-muted-foreground">
+              <span className="rounded-full bg-current/15 px-1.5 py-0.5 font-mono text-[11px] tabular-nums">
                 {providerTasks.length}
               </span>
             </TabsTrigger>

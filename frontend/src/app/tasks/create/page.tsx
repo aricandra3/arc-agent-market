@@ -1,6 +1,5 @@
 "use client";
 
-import { Eyebrow } from "@/components/Eyebrow";
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
@@ -18,7 +17,8 @@ import { Reveal } from "@/components/exagora/Reveal";
 import { TransactionButton } from "@/components/exagora/TransactionButton";
 import { PageHeader } from "@/components/PageHeader";
 import { TransactionState } from "@/components/TransactionState";
-import { Badge } from "@/components/ui/badge";
+import { SkillBadge } from "@/components/SkillBadge";
+import { useWrongNetwork } from "@/lib/useWrongNetwork";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -45,7 +45,7 @@ export default function CreateTaskPageWrapper() {
     <Suspense
       fallback={
         <div className="app-container max-w-5xl py-12">
-          <Skeleton className="h-[34rem] rounded-[2px] bg-primary/10" />
+          <Skeleton className="h-[34rem] rounded-lg bg-primary/10" />
         </div>
       }
     >
@@ -57,6 +57,7 @@ export default function CreateTaskPageWrapper() {
 function CreateTaskPage() {
   const searchParams = useSearchParams();
   const { isConnected } = useWalletStore();
+  const wrongNetwork = useWrongNetwork();
   const [form, setForm] = useState({
     provider: searchParams.get("provider") || "",
     description: "",
@@ -277,13 +278,7 @@ function CreateTaskPage() {
           {skills.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {skills.map((skill) => (
-                <Badge
-                  key={skill}
-                  variant="outline"
-                  className="border-[#416789]/70 bg-[#10243c] text-[#b8d0e6]"
-                >
-                  {skill}
-                </Badge>
+                <SkillBadge key={skill} skill={skill} className="px-3 py-1 text-xs" />
               ))}
             </div>
           )}
@@ -291,11 +286,7 @@ function CreateTaskPage() {
 
         <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
           <Reveal className="brutal-surface block p-5" delay={100}>
-            <span
-              aria-hidden="true"
-              className="absolute inset-x-0 top-0 h-1.5 bg-[var(--accent-azure)]"
-            />
-            <Eyebrow>Escrow summary</Eyebrow>
+            <p className="text-sm font-semibold text-foreground">Escrow summary</p>
             <div className="mt-5 space-y-4">
               <SummaryRow
                 icon={CircleDollarSign}
@@ -357,11 +348,11 @@ function CreateTaskPage() {
             type="submit"
             size="lg"
             className="w-full"
-            disabled={isBusy || phase === "submitted"}
+            disabled={isBusy || phase === "submitted" || wrongNetwork}
             submittedLabel="Task submitted"
           >
             <FilePlus2 aria-hidden="true" />
-            {buttonLabel}
+            {wrongNetwork ? "Switch to Arc Testnet first" : buttonLabel}
           </TransactionButton>
         </aside>
       </form>

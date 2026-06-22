@@ -1,6 +1,5 @@
 "use client";
 
-import { Eyebrow } from "@/components/Eyebrow";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
@@ -11,14 +10,12 @@ import {
   Plus,
   SearchCheck,
   ShieldCheck,
-  Sparkles,
 } from "lucide-react";
 import AgentRow from "@/components/AgentRow";
 import FeaturedAgent from "@/components/FeaturedAgent";
 import { HeroBackground } from "@/components/exagora/HeroBackground";
 import { LifecycleFlow } from "@/components/exagora/LifecycleFlow";
 import { Marquee } from "@/components/exagora/Marquee";
-import { PointerHighlight } from "@/components/exagora/PointerHighlight";
 import { Reveal } from "@/components/exagora/Reveal";
 import { NetworkSnapshot } from "@/components/NetworkSnapshot";
 import { Button } from "@/components/ui/button";
@@ -102,41 +99,45 @@ export default function Home() {
           tasks: Number(taskCount),
         });
 
-        const agents: AgentSummary[] = [];
         const count = Math.min(Number(agentCount), 6);
-        for (let i = 0; i < count; i++) {
-          try {
-            const addr = await publicClient.readContract({
-              address: CONTRACTS.AGENT_REGISTRY,
-              abi: AGENT_REGISTRY_ABI,
-              functionName: "getAgentByIndex",
-              args: [BigInt(i)],
-            });
-            const agentData = await publicClient.readContract({
-              address: CONTRACTS.AGENT_REGISTRY,
-              abi: AGENT_REGISTRY_ABI,
-              functionName: "getAgent",
-              args: [addr],
-            });
-            agents.push({
-              address: addr,
-              name: agentData[0],
-              description: agentData[1],
-              skills: [...agentData[2]],
-              ratePerTask: agentData[3],
-              ratePerCall: agentData[4],
-              completedTasks: agentData[5],
-              totalEarnings: agentData[6],
-              averageRating: agentData[7],
-              ratingCount: agentData[8],
-              isActive: agentData[9],
-              verificationStats: await loadAgentVerificationStats(addr),
-            });
-          } catch (agentError) {
-            console.error(`Failed to load agent ${i}:`, agentError);
-          }
-        }
-        setFeaturedAgents(agents);
+        const loaded = await Promise.all(
+          Array.from({ length: count }, async (_, i): Promise<AgentSummary | null> => {
+            try {
+              const addr = await publicClient.readContract({
+                address: CONTRACTS.AGENT_REGISTRY,
+                abi: AGENT_REGISTRY_ABI,
+                functionName: "getAgentByIndex",
+                args: [BigInt(i)],
+              });
+              const agentData = await publicClient.readContract({
+                address: CONTRACTS.AGENT_REGISTRY,
+                abi: AGENT_REGISTRY_ABI,
+                functionName: "getAgent",
+                args: [addr],
+              });
+              return {
+                address: addr,
+                name: agentData[0],
+                description: agentData[1],
+                skills: [...agentData[2]],
+                ratePerTask: agentData[3],
+                ratePerCall: agentData[4],
+                completedTasks: agentData[5],
+                totalEarnings: agentData[6],
+                averageRating: agentData[7],
+                ratingCount: agentData[8],
+                isActive: agentData[9],
+                verificationStats: await loadAgentVerificationStats(addr),
+              };
+            } catch (agentError) {
+              console.error(`Failed to load agent ${i}:`, agentError);
+              return null;
+            }
+          }),
+        );
+        setFeaturedAgents(
+          loaded.filter((agent): agent is AgentSummary => agent !== null),
+        );
       } catch (error) {
         console.error("Failed to load home data:", error);
         setLoadError("Live Arc testnet metrics are temporarily unavailable.");
@@ -154,21 +155,13 @@ export default function Home() {
         <HeroBackground />
         <div className="app-container relative flex min-h-[38rem] items-center py-14 sm:min-h-[42rem] sm:py-20">
           <div className="w-full max-w-4xl">
-            <span
-              className="sticker-chip"
-              style={{ ["--chip-bg" as string]: "var(--accent-cyan)" }}
-            >
-              <Sparkles className="size-3.5" aria-hidden="true" />
+            <p className="font-mono text-[11px] tracking-wide text-[#9fc1df]">
               {BRAND.descriptor}
-            </span>
-            <h1 className="font-display mt-7 max-w-4xl text-5xl leading-[0.86] uppercase sm:text-7xl lg:text-[6.75rem]">
-              <span className="display-shadow block text-foreground">
-                Discover agents.
-              </span>
-              <PointerHighlight className="mt-2">
-                Verify work.
-              </PointerHighlight>
-              <span className="mt-2 block text-gradient">Settle onchain.</span>
+            </p>
+            <h1 className="font-display mt-5 text-4xl leading-[0.95] tracking-[0.01em] uppercase sm:text-6xl lg:text-[5.25rem]">
+              <span className="block text-foreground">Discover agents.</span>
+              <span className="mt-2 block text-[#9fc1df]">Verify work.</span>
+              <span className="mt-2 block text-foreground">Settle onchain.</span>
             </h1>
             <p className="mt-8 max-w-xl text-base leading-7 text-[#b8cce0] sm:text-lg">
               {BRAND.supportingCopy}
@@ -183,7 +176,7 @@ export default function Home() {
               <Button asChild size="lg" variant="secondary">
                 <Link href="/register">
                   <Plus aria-hidden="true" />
-                  List an agent
+                  Register an agent
                 </Link>
               </Button>
             </div>
@@ -196,7 +189,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="relative border-y border-border/40 bg-[#071426]/60 py-3 backdrop-blur-sm">
+        <div className="relative border-y border-border/40 bg-[#071426]/60 py-3">
           <Marquee
             items={[
               "USDC settlement",
@@ -225,7 +218,6 @@ export default function Home() {
           <section className="app-container py-16 sm:py-20">
             <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <Eyebrow>ExAgora marketplace</Eyebrow>
                 <h2 className="font-display mt-2 text-3xl font-semibold text-foreground">
                   Agents with inspectable work.
                 </h2>
@@ -261,7 +253,6 @@ export default function Home() {
         <section className="border-y border-border/55 bg-[#0b192d]">
           <div className="app-container py-16 sm:py-20">
             <div className="max-w-xl">
-              <Eyebrow>Task lifecycle</Eyebrow>
               <h2 className="font-display mt-2 text-3xl font-semibold text-foreground">
                 From request to evidence-backed settlement.
               </h2>
@@ -273,7 +264,6 @@ export default function Home() {
         <section className="app-container py-16 sm:py-20">
           <Reveal className="brutal-surface flex flex-col gap-7 p-7 sm:flex-row sm:items-center sm:justify-between sm:p-9">
             <div className="max-w-2xl">
-              <Eyebrow>Enter the market</Eyebrow>
               <h2 className="font-display mt-2 text-2xl font-semibold text-foreground">
                 Commission autonomous work with a visible trail.
               </h2>

@@ -42,7 +42,7 @@ export function LifecycleFlow({ steps }: { steps: Step[] }) {
                 )}
               </span>
               <Icon
-                className="size-5 text-[#5f82a6] transition-colors duration-300 group-hover/step:[color:var(--accent)] lg:mt-6"
+                className="size-5 text-[#82a0c4] transition-colors duration-300 group-hover/step:[color:var(--accent)] lg:mt-6"
                 aria-hidden="true"
               />
             </div>

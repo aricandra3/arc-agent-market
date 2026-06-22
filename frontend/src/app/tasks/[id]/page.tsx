@@ -1,6 +1,5 @@
 "use client";
 
-import { Eyebrow } from "@/components/Eyebrow";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -22,6 +21,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { Reveal } from "@/components/exagora/Reveal";
 import { TransactionButton } from "@/components/exagora/TransactionButton";
 import { StatusBadge } from "@/components/StatusBadge";
+import { useWrongNetwork } from "@/lib/useWrongNetwork";
 import {
   TransactionState,
   type TransactionPhase,
@@ -62,6 +62,7 @@ export default function TaskDetailPage() {
   const params = useParams();
   const taskId = params.id as string;
   const { address, isConnected } = useWalletStore();
+  const wrongNetwork = useWrongNetwork();
   const [task, setTask] = useState<TaskDetail | null>(null);
   const [receipt, setReceipt] = useState<WorkReceiptRecord | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -139,9 +140,9 @@ export default function TaskDetailPage() {
   if (isLoading) {
     return (
       <div className="app-container max-w-5xl space-y-6 py-10">
-        <Skeleton className="h-28 rounded-[2px] bg-primary/10" />
-        <Skeleton className="h-40 rounded-[2px] bg-primary/10" />
-        <Skeleton className="h-52 rounded-[2px] bg-primary/10" />
+        <Skeleton className="h-28 rounded-lg bg-primary/10" />
+        <Skeleton className="h-40 rounded-lg bg-primary/10" />
+        <Skeleton className="h-52 rounded-lg bg-primary/10" />
       </div>
     );
   }
@@ -172,15 +173,7 @@ export default function TaskDetailPage() {
       className="app-container max-w-5xl py-10 sm:py-14"
       style={{ ["--page-accent" as string]: "var(--accent-azure)" }}
     >
-      <header className="relative isolate border-b border-border/65 pb-7">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -top-24 -right-[10vw] -left-[10vw] -z-10 h-60"
-          style={{
-            background:
-              "radial-gradient(46% 100% at 30% 0%, color-mix(in srgb, var(--page-accent) 15%, transparent), transparent 72%)",
-          }}
-        />
+      <header className="border-b border-border/65 pb-7">
         <nav className="mb-3 flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
           <Link href="/" className="transition-colors hover:text-foreground">
             Home
@@ -197,13 +190,7 @@ export default function TaskDetailPage() {
         </nav>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <Eyebrow
-              accentColor="var(--page-accent)"
-              className="border-[color:color-mix(in_srgb,var(--page-accent)_38%,transparent)] bg-[color:color-mix(in_srgb,var(--page-accent)_9%,transparent)] text-[color:color-mix(in_srgb,var(--page-accent)_82%,var(--foreground))]"
-            >
-              Task record / {taskId}
-            </Eyebrow>
-            <h1 className="font-display text-gradient mt-3 text-4xl tracking-tight sm:text-5xl">
+            <h1 className="font-display text-foreground text-4xl tracking-tight sm:text-5xl">
               Task #{taskId}
             </h1>
           </div>
@@ -214,7 +201,7 @@ export default function TaskDetailPage() {
         </p>
       </header>
 
-      <Reveal className="mt-7 grid overflow-hidden rounded-[1.15rem] border-t border-l border-border/55 sm:grid-cols-2 lg:grid-cols-4">
+      <Reveal className="mt-7 grid overflow-hidden rounded-[0.85rem] border-t border-l border-border/55 sm:grid-cols-2 lg:grid-cols-4">
         <TaskMetric
           icon={CircleDollarSign}
           label="Budget"
@@ -293,7 +280,7 @@ export default function TaskDetailPage() {
                 <TransactionButton
                   phase={actionPhase}
                   onClick={() => handleAction("startTask")}
-                  disabled={actionPhase === "signing"}
+                  disabled={actionPhase === "signing" || wrongNetwork}
                   submittedLabel="Start submitted"
                 >
                   <Play aria-hidden="true" />
@@ -304,7 +291,7 @@ export default function TaskDetailPage() {
                 <TransactionButton
                   phase={actionPhase}
                   onClick={() => handleAction("approveTask")}
-                  disabled={actionPhase === "signing"}
+                  disabled={actionPhase === "signing" || wrongNetwork}
                   submittedLabel="Approval submitted"
                 >
                   <ShieldCheck aria-hidden="true" />
@@ -317,7 +304,7 @@ export default function TaskDetailPage() {
                   variant="outline"
                   className="border-[#d36c72]/65 text-[#efa2a7] hover:bg-[#d36c72]/10"
                   onClick={() => handleAction("cancelTask")}
-                  disabled={actionPhase === "signing"}
+                  disabled={actionPhase === "signing" || wrongNetwork}
                   submittedLabel="Cancellation submitted"
                 >
                   <Trash2 aria-hidden="true" />
