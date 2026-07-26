@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/Ownable2Step.sol";
 
 /**
  * @title VerifierRegistry
  * @notice Registry of approved services or reviewers that can verify agent work.
  */
-contract VerifierRegistry is Ownable {
+contract VerifierRegistry is Ownable2Step {
     enum VerifierType {
         Human,
         Service,

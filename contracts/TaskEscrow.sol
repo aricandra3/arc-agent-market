@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 interface IAgentRegistry {
@@ -16,7 +16,7 @@ interface IAgentRegistry {
  * @title TaskEscrow
  * @notice Escrow-based task marketplace for AI agents
  */
-contract TaskEscrow is Ownable, ReentrancyGuard {
+contract TaskEscrow is Ownable2Step, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     enum TaskStatus {
@@ -64,6 +64,7 @@ contract TaskEscrow is Ownable, ReentrancyGuard {
     event TaskAccepted(uint256 indexed taskId, address indexed provider);
     event TaskSubmitted(uint256 indexed taskId, bytes32 deliverableHash, string deliverableURI);
     event TaskApproved(uint256 indexed taskId, uint256 paymentAmount);
+    event TaskAutoReleased(uint256 indexed taskId, uint256 paymentAmount);
     event TaskDisputed(uint256 indexed taskId, address indexed disputer, string reason);
     event TaskResolved(uint256 indexed taskId, uint256 requesterShare, uint256 providerShare);
     event TaskCancelled(uint256 indexed taskId);
@@ -183,24 +184,44 @@ contract TaskEscrow is Ownable, ReentrancyGuard {
         require(task.requester == msg.sender, "Not requester");
         require(task.status == TaskStatus.Submitted, "Not submitted");
 
-        task.status = TaskStatus.Approved;
+        uint256 providerPayment = _releasePayment(task);
+        emit TaskApproved(taskId, providerPayment);
+    }
 
-        // Calculate payment
+    /**
+     * @notice Release payment for submitted work the requester never answered
+     * @dev Permissionless on purpose: without it, a requester who simply walks
+     *      away after a deliverable is submitted locks the escrow forever —
+     *      `expireTask` rejects Submitted tasks and only a Disputed task can be
+     *      resolved. Funds can only ever move to the provider here, so allowing
+     *      anyone to poke it costs the requester nothing they had not already
+     *      agreed to by letting the dispute window lapse.
+     */
+    function claimUncontestedTask(uint256 taskId) external nonReentrant {
+        Task storage task = tasks[taskId];
+        require(task.status == TaskStatus.Submitted, "Not submitted");
+        require(block.timestamp > task.disputeDeadline, "Dispute window open");
+
+        uint256 providerPayment = _releasePayment(task);
+        emit TaskAutoReleased(taskId, providerPayment);
+    }
+
+    /// @dev Moves a Submitted task to Paid, splitting budget between provider and fee.
+    function _releasePayment(Task storage task) private returns (uint256) {
         uint256 fee = (task.budget * platformFeePercent) / 10000;
         uint256 providerPayment = task.budget - fee;
 
-        // Transfer payment
+        // Set before transferring: the status guard is the reentrancy invariant.
         task.status = TaskStatus.Paid;
+
         usdc.safeTransfer(task.provider, providerPayment);
-        
         if (fee > 0) {
             usdc.safeTransfer(owner(), fee);
         }
 
-        // Record completion
         agentRegistry.recordTaskCompletion(task.provider, providerPayment);
 
-        emit TaskApproved(taskId, providerPayment);
+        return providerPayment;
     }
 
     /**
@@ -288,6 +309,16 @@ contract TaskEscrow is Ownable, ReentrancyGuard {
     ) {
         Task storage t = tasks[taskId];
         return (t.requester, t.provider, t.budget, t.description, t.status, t.createdAt, t.deadline, t.deliverableHash, t.deliverableURI);
+    }
+
+    /**
+     * @notice Timestamp after which a Submitted task can be released without the
+     *         requester, via claimUncontestedTask. Zero until a deliverable lands.
+     * @dev Exposed separately rather than added to getTask's tuple, which
+     *      WorkReceipt decodes positionally.
+     */
+    function getDisputeDeadline(uint256 taskId) external view returns (uint256) {
+        return tasks[taskId].disputeDeadline;
     }
 
     function getRequesterTasks(address requester) external view returns (uint256[] memory) {
