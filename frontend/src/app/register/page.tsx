@@ -1,6 +1,5 @@
 "use client";
 
-import { Eyebrow } from "@/components/Eyebrow";
 import Link from "next/link";
 import { useState } from "react";
 import {
@@ -17,6 +16,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { Reveal } from "@/components/exagora/Reveal";
 import { TransactionButton } from "@/components/exagora/TransactionButton";
 import { PageHeader } from "@/components/PageHeader";
+import { useWrongNetwork } from "@/lib/useWrongNetwork";
 import {
   TransactionState,
   type TransactionPhase,
@@ -30,9 +30,9 @@ import { BRAND } from "@/lib/brand";
 import {
   AGENT_REGISTRY_ABI,
   CONTRACTS,
-  isUserRejectedError,
-  sendTransaction,
+  EXPLORER_BASE_URL,
 } from "@/lib/contracts";
+import { describeTxError, sendTransaction, waitForTx } from "@/lib/tx";
 import { useWalletStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
@@ -61,6 +61,7 @@ const SKILL_OPTIONS = [
 
 export default function RegisterPage() {
   const { address, isConnected } = useWalletStore();
+  const wrongNetwork = useWrongNetwork();
   const [form, setForm] = useState({
     name: "",
     description: "",
@@ -122,18 +123,23 @@ export default function RegisterPage() {
         ],
       });
 
-      const tx = await sendTransaction(CONTRACTS.AGENT_REGISTRY, data);
-      setTxHash(tx);
+      const hash = await sendTransaction({
+        to: CONTRACTS.AGENT_REGISTRY,
+        data,
+      });
+      setTxHash(hash);
       setPhase("submitted");
       toast.success("Agent registration submitted", {
-        description: "Track the transaction on Arcscan.",
+        description: "Waiting for Arc to confirm the transaction.",
+      });
+
+      await waitForTx(hash);
+      setPhase("confirmed");
+      toast.success("Agent registered", {
+        description: "The profile is now readable on Arc testnet.",
       });
     } catch (submitError: unknown) {
-      const message = isUserRejectedError(submitError)
-        ? "The wallet signature was cancelled."
-        : submitError instanceof Error
-          ? submitError.message
-          : "Registration failed.";
+      const message = describeTxError(submitError);
       console.error("Registration failed:", submitError);
       setError(message);
       setPhase("failed");
@@ -154,23 +160,29 @@ export default function RegisterPage() {
     );
   }
 
-  if (txHash) {
+  if (txHash && (phase === "submitted" || phase === "confirmed")) {
+    const confirmed = phase === "confirmed";
     return (
       <div className="app-container max-w-3xl py-12">
-        <div className="brutal-surface p-7 sm:p-10">
-          <div className="flex size-11 items-center justify-center border border-[#6eb8ad]/60 bg-[#6eb8ad]/10 text-[#9cd4cc]">
+        <div className="panel p-7 sm:p-10">
+          <div className="flex size-11 items-center justify-center border border-[var(--success)]/60 bg-[var(--success)]/10 text-[var(--accent-cyan)]">
             <CircleCheck className="size-5" aria-hidden="true" />
           </div>
-          <Eyebrow className="mt-7">Registration submitted</Eyebrow>
+          <p className="mt-7 text-sm font-semibold text-foreground">
+            {confirmed ? "Registration confirmed" : "Registration submitted"}
+          </p>
           <h1 className="mt-2 text-3xl font-semibold text-foreground">
-            {form.name} is entering the market.
+            {confirmed
+              ? `${form.name} is live on the market.`
+              : `${form.name} is entering the market.`}
           </h1>
           <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
-            Arc testnet is processing the registration. The profile becomes
-            readable after the transaction is confirmed.
+            {confirmed
+              ? "The profile is readable on Arc testnet and can now accept tasks."
+              : "Arc testnet is processing the registration. The profile becomes readable after the transaction is confirmed."}
           </p>
           <TransactionState
-            phase="submitted"
+            phase={phase}
             hash={txHash}
             message="Agent registration transaction"
           />
@@ -191,8 +203,7 @@ export default function RegisterPage() {
 
   return (
     <div
-      className="app-container max-w-4xl py-10 sm:py-14"
-      style={{ ["--page-accent" as string]: "var(--accent-indigo)" }}
+      className="app-container max-w-4xl py-16 sm:py-24"
     >
       <PageHeader
         eyebrow="Provider onboarding"
@@ -203,8 +214,8 @@ export default function RegisterPage() {
       />
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-6">
-        <Reveal className="brutal-surface block p-5 sm:p-7">
-          <SectionTitle number="01" title="Identity" />
+        <Reveal className="panel block p-5 sm:p-7">
+          <SectionTitle title="Identity" />
           <div className="mt-6 grid gap-5">
             <Field label="Agent name" htmlFor="agent-name" required>
               <Input
@@ -231,8 +242,8 @@ export default function RegisterPage() {
           </div>
         </Reveal>
 
-        <Reveal className="brutal-surface block p-5 sm:p-7">
-          <SectionTitle number="02" title="Capabilities" />
+        <Reveal className="panel block p-5 sm:p-7">
+          <SectionTitle title="Capabilities" />
           <p className="mt-3 text-sm text-muted-foreground">
             Select at least one capability buyers can use for discovery.
           </p>
@@ -265,8 +276,8 @@ export default function RegisterPage() {
           )}
         </Reveal>
 
-        <Reveal className="brutal-surface block p-5 sm:p-7">
-          <SectionTitle number="03" title="Pricing" />
+        <Reveal className="panel block p-5 sm:p-7">
+          <SectionTitle title="Pricing" />
           <div className="mt-6 grid gap-5 sm:grid-cols-2">
             <Field label="Rate per task (USDC)" htmlFor="rate-task">
               <Input
@@ -297,14 +308,14 @@ export default function RegisterPage() {
           </div>
         </Reveal>
 
-        <Reveal className="brutal-surface block p-5 sm:p-7">
-          <SectionTitle number="04" title="Wallet summary" />
+        <Reveal className="panel block p-5 sm:p-7">
+          <SectionTitle title="Wallet summary" />
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
             <div>
               <p className="text-xs text-muted-foreground">Network</p>
               <p className="mt-2 flex items-center gap-2 font-mono text-sm text-foreground">
                 <RadioTower
-                  className="size-3.5 text-[#6eb8ad]"
+                  className="size-3.5 text-[var(--success)]"
                   aria-hidden="true"
                 />
                 Arc Testnet
@@ -319,7 +330,7 @@ export default function RegisterPage() {
           </div>
           <Separator className="my-6 bg-border/60" />
           {error && (
-            <p className="mb-4 text-sm text-[#efa2a7]" role="alert">
+            <p className="mb-4 text-sm text-[var(--destructive-fg)]" role="alert">
               {error}
             </p>
           )}
@@ -329,14 +340,19 @@ export default function RegisterPage() {
             type="submit"
             size="lg"
             className="mt-5 w-full"
-            disabled={isBusy || form.skills.length === 0 || !form.name.trim()}
+            disabled={
+              isBusy ||
+              form.skills.length === 0 ||
+              !form.name.trim() ||
+              wrongNetwork
+            }
             submittedLabel="Registration submitted"
           >
             <CircleDollarSign aria-hidden="true" />
-            Register on Arc Testnet
+            {wrongNetwork ? "Switch to Arc Testnet first" : "Register on Arc Testnet"}
           </TransactionButton>
           <a
-            href="https://testnet.arcscan.app"
+            href={EXPLORER_BASE_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="mt-4 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary"
@@ -350,15 +366,8 @@ export default function RegisterPage() {
   );
 }
 
-function SectionTitle({ number, title }: { number: string; title: string }) {
-  return (
-    <div className="flex items-center gap-3">
-      <span className="grid size-9 shrink-0 place-items-center rounded-[0.65rem] border-[1.5px] border-[#04101f] bg-[var(--page-accent)] font-mono text-sm font-bold text-[#071426] shadow-[2px_2px_0_#040c18]">
-        {number}
-      </span>
-      <h2 className="font-display text-xl text-foreground">{title}</h2>
-    </div>
-  );
+function SectionTitle({ title }: { title: string }) {
+  return <h2 className="font-display text-xl text-foreground">{title}</h2>;
 }
 
 function Field({
@@ -376,7 +385,7 @@ function Field({
     <div className="space-y-2">
       <Label htmlFor={htmlFor}>
         {label}
-        {required && <span className="text-[#efa2a7]"> *</span>}
+        {required && <span className="text-[var(--destructive-fg)]"> *</span>}
       </Label>
       {children}
     </div>

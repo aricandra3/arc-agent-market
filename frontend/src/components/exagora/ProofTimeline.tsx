@@ -91,10 +91,10 @@ export function ProofTimeline({
         <li key={label} className="relative pb-5 last:pb-0">
           <span
             className={cn(
-              "absolute top-0 -left-[1.83rem] flex size-4 items-center justify-center border bg-[#0b192d]",
-              tone === "success" && "border-[#6eb8ad] text-[#9cd4cc]",
-              tone === "warning" && "border-[#d4ad6f] text-[#e7c992]",
-              tone === "error" && "border-[#d36c72] text-[#efa2a7]",
+              "absolute top-0 -left-[1.83rem] flex size-4 items-center justify-center border bg-[var(--surface-deep)]",
+              tone === "success" && "border-[var(--success)] text-[var(--accent-cyan)]",
+              tone === "warning" && "border-[var(--warning)] text-[var(--warning-fg)]",
+              tone === "error" && "border-[var(--destructive)] text-[var(--destructive-fg)]",
               tone === "neutral" && "border-border text-primary",
             )}
           >

@@ -1,62 +1,124 @@
 import { createPublicClient, http, formatUnits } from 'viem';
+import { readLimiter, withRpcRetry } from '@/lib/rpc';
 
 export const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as const;
 
 type TupleLike = Record<string, unknown> & { [index: number]: unknown };
 
-interface BrowserWalletProvider {
-  state?: {
-    address?: string;
-  };
-  connect: () => Promise<unknown>;
-  disconnect: () => Promise<unknown> | unknown;
+export type Address = `0x${string}`;
+
+/**
+ * Reads a `NEXT_PUBLIC_*` value, falling back when it is unset or blank.
+ * Next inlines these at build time, so each variable must be referenced
+ * literally — no dynamic `process.env[key]` lookups.
+ */
+function envAddress(value: string | undefined, fallback: Address): Address {
+  const trimmed = value?.trim();
+  return trimmed ? (trimmed as Address) : fallback;
 }
 
-interface EthereumRequestProvider {
-  request: (args: {
-    method: string;
-    params?: unknown[];
-  }) => Promise<string>;
-}
-
-declare global {
-  interface Window {
-    __arcWallet?: BrowserWalletProvider;
-    ethereum?: EthereumRequestProvider;
-  }
-}
+const RPC_URL =
+  process.env.NEXT_PUBLIC_ARC_RPC_URL?.trim() || 'https://rpc.testnet.arc.network';
+const EXPLORER_URL =
+  process.env.NEXT_PUBLIC_ARC_EXPLORER_URL?.trim() || 'https://testnet.arcscan.app';
+const CHAIN_ID = Number(process.env.NEXT_PUBLIC_ARC_CHAIN_ID ?? 5042002);
 
 // Arc Testnet chain definition
 export const arcTestnet = {
-  id: 5042002,
+  id: CHAIN_ID,
   name: 'Arc Testnet',
   network: 'arc-testnet',
   nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 6 },
   rpcUrls: {
-    default: { http: ['https://rpc.testnet.arc.network'] },
-    public: { http: ['https://rpc.testnet.arc.network'] },
+    default: { http: [RPC_URL] },
+    public: { http: [RPC_URL] },
   },
   blockExplorers: {
-    default: { name: 'ArcScan', url: 'https://testnet.arcscan.app' },
+    default: { name: 'ArcScan', url: EXPLORER_URL },
   },
 } as const;
 
-// Contract addresses
+// Contract addresses — override per environment via NEXT_PUBLIC_*_ADDRESS.
+// Fallbacks are the current Arc testnet deployment; VerifierRegistry and
+// WorkReceipt have no default because they were never wired to the frontend.
 export const CONTRACTS = {
-  AGENT_REGISTRY: '0x26A6cc98a85ec5b0051e2152f366C7A9228c2e70' as const,
-  TASK_ESCROW: '0x4F4E5d4192B99BA92c1339e35760003a6AC938be' as const,
-  MICRO_PAYMENT: '0x8659E22Ac4bADa8D1a2Eb11bc8FF66410C8BfF5C' as const,
-  REPUTATION: '0x5A2457c4bE7405bF4ED63aFd4689f52435cB1065' as const,
-  VERIFIER_REGISTRY: ZERO_ADDRESS,
-  WORK_RECEIPT: ZERO_ADDRESS,
-  USDC: '0x3600000000000000000000000000000000000000' as const,
+  AGENT_REGISTRY: envAddress(
+    process.env.NEXT_PUBLIC_AGENT_REGISTRY_ADDRESS,
+    '0x26A6cc98a85ec5b0051e2152f366C7A9228c2e70',
+  ),
+  TASK_ESCROW: envAddress(
+    process.env.NEXT_PUBLIC_TASK_ESCROW_ADDRESS,
+    '0x4F4E5d4192B99BA92c1339e35760003a6AC938be',
+  ),
+  MICRO_PAYMENT: envAddress(
+    process.env.NEXT_PUBLIC_MICRO_PAYMENT_ADDRESS,
+    '0x8659E22Ac4bADa8D1a2Eb11bc8FF66410C8BfF5C',
+  ),
+  REPUTATION: envAddress(
+    process.env.NEXT_PUBLIC_REPUTATION_ADDRESS,
+    '0x5A2457c4bE7405bF4ED63aFd4689f52435cB1065',
+  ),
+  VERIFIER_REGISTRY: envAddress(
+    process.env.NEXT_PUBLIC_VERIFIER_REGISTRY_ADDRESS,
+    ZERO_ADDRESS,
+  ),
+  WORK_RECEIPT: envAddress(
+    process.env.NEXT_PUBLIC_WORK_RECEIPT_ADDRESS,
+    ZERO_ADDRESS,
+  ),
+  USDC: envAddress(
+    process.env.NEXT_PUBLIC_USDC_ADDRESS,
+    '0x3600000000000000000000000000000000000000',
+  ),
 };
 
-// Public client for reads
+export const EXPLORER_BASE_URL = EXPLORER_URL;
+
+export function isConfiguredAddress(address: string): boolean {
+  return Boolean(address) && address.toLowerCase() !== ZERO_ADDRESS;
+}
+
+export function explorerTxUrl(hash: string): string {
+  return `${EXPLORER_URL}/tx/${hash}`;
+}
+
+export function explorerAddressUrl(address: string): string {
+  return `${EXPLORER_URL}/address/${address}`;
+}
+
+// Public client for reads.
+//
+// The escrow and registry expose no bulk getters, so list views fan out into
+// one `eth_call` per record. The public Arc RPC rate-limits that ("request
+// limit reached"), so JSON-RPC batching is enabled: calls issued in the same
+// tick are coalesced into a single HTTP request.
 export const publicClient = createPublicClient({
   chain: arcTestnet,
-  transport: http('https://rpc.testnet.arc.network'),
+  transport: http(RPC_URL, {
+    batch: { wait: 16, batchSize: 24 },
+    retryCount: 3,
+    retryDelay: 200,
+  }),
 });
+
+/**
+ * `publicClient.readContract` with automatic rate-limit retry.
+ *
+ * Prefer this everywhere over the raw client method. viem's own `retryCount`
+ * does not cover Arc's `-32011 "request limit reached"`, because that arrives as
+ * a successful HTTP response carrying a JSON-RPC error. Routing every read
+ * through one wrapper keeps a page from being the one that forgot to retry.
+ */
+export const readContract: typeof publicClient.readContract = ((
+  args: Parameters<typeof publicClient.readContract>[0],
+) =>
+  withRpcRetry(async () => {
+    // Paced first, retried second: the gate keeps normal traffic under the
+    // quota, and retry only covers the cases where the estimate is off — other
+    // tabs, a background refetch, or a shifting server-side limit.
+    await readLimiter.acquire();
+    return publicClient.readContract(args);
+  })) as typeof publicClient.readContract;
 
 // ABIs (minimal - only what we need)
 export const AGENT_REGISTRY_ABI = [
@@ -79,8 +141,10 @@ export const TASK_ESCROW_ABI = [
   { inputs: [{ name: 'taskId', type: 'uint256' }, { name: 'deliverableHash', type: 'bytes32' }, { name: 'deliverableURI', type: 'string' }], name: 'submitDeliverable', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [{ name: 'taskId', type: 'uint256' }], name: 'approveTask', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [{ name: 'taskId', type: 'uint256' }], name: 'cancelTask', outputs: [], stateMutability: 'nonpayable', type: 'function' },
+  { inputs: [{ name: 'taskId', type: 'uint256' }], name: 'claimUncontestedTask', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [{ name: 'taskId', type: 'uint256' }], name: 'getTask', outputs: [{ name: 'requester', type: 'address' }, { name: 'provider', type: 'address' }, { name: 'budget', type: 'uint256' }, { name: 'description', type: 'string' }, { name: 'status', type: 'uint8' }, { name: 'createdAt', type: 'uint256' }, { name: 'deadline', type: 'uint256' }, { name: 'deliverableHash', type: 'bytes32' }, { name: 'deliverableURI', type: 'string' }], stateMutability: 'view', type: 'function' },
   { inputs: [], name: 'getTaskCount', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
+  { inputs: [{ name: 'taskId', type: 'uint256' }], name: 'getDisputeDeadline', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
   { inputs: [{ name: 'requester', type: 'address' }], name: 'getRequesterTasks', outputs: [{ name: '', type: 'uint256[]' }], stateMutability: 'view', type: 'function' },
   { inputs: [{ name: 'provider', type: 'address' }], name: 'getProviderTasks', outputs: [{ name: '', type: 'uint256[]' }], stateMutability: 'view', type: 'function' },
   { anonymous: false, inputs: [{ indexed: true, name: 'taskId', type: 'uint256' }, { indexed: true, name: 'requester', type: 'address' }, { indexed: false, name: 'budget', type: 'uint256' }, { indexed: false, name: 'description', type: 'string' }], name: 'TaskCreated', type: 'event' },
@@ -90,10 +154,75 @@ export const REPUTATION_ABI = [
   { inputs: [{ name: 'taskId', type: 'uint256' }, { name: 'rating', type: 'uint8' }, { name: 'comment', type: 'string' }], name: 'submitReview', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [{ name: 'agent', type: 'address' }], name: 'getReputation', outputs: [{ name: 'averageRating', type: 'uint256' }, { name: 'totalReviews', type: 'uint256' }, { name: 'completedTasks', type: 'uint256' }, { name: 'disputedTasks', type: 'uint256' }, { name: 'totalEarnings', type: 'uint256' }, { name: 'avgResponseTime', type: 'uint256' }, { name: 'completionRate', type: 'uint256' }], stateMutability: 'view', type: 'function' },
   { inputs: [{ name: 'agent', type: 'address' }], name: 'getTrustScore', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
+  { inputs: [{ name: 'taskId', type: 'uint256' }, { name: 'reviewer', type: 'address' }], name: 'hasReviewForTask', outputs: [{ name: '', type: 'bool' }], stateMutability: 'view', type: 'function' },
+  { inputs: [{ name: 'agent', type: 'address' }], name: 'getReviewCount', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
   { inputs: [{ name: 'agent', type: 'address' }, { name: 'offset', type: 'uint256' }, { name: 'limit', type: 'uint256' }], name: 'getReviews', outputs: [{ name: 'reviewIds', type: 'uint256[]' }, { name: 'reviewers', type: 'address[]' }, { name: 'ratings', type: 'uint8[]' }, { name: 'comments', type: 'string[]' }, { name: 'taskIds', type: 'uint256[]' }, { name: 'createdAts', type: 'uint256[]' }], stateMutability: 'view', type: 'function' },
 ] as const;
 
 export const WORK_RECEIPT_ABI = [
+  {
+    inputs: [
+      { name: 'taskId', type: 'uint256' },
+      { name: 'proofURI', type: 'string' },
+      { name: 'proofHash', type: 'bytes32' },
+    ],
+    name: 'createReceipt',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { name: 'receiptId', type: 'uint256' },
+      { name: 'score', type: 'uint16' },
+      { name: 'proofURI', type: 'string' },
+      { name: 'proofHash', type: 'bytes32' },
+    ],
+    name: 'passReceipt',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { name: 'receiptId', type: 'uint256' },
+      { name: 'score', type: 'uint16' },
+      { name: 'proofURI', type: 'string' },
+      { name: 'proofHash', type: 'bytes32' },
+    ],
+    name: 'failReceipt',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [{ name: 'receiptId', type: 'uint256' }],
+    name: 'getReceipt',
+    outputs: [{
+      name: '',
+      type: 'tuple',
+      components: [
+        { name: 'id', type: 'uint256' },
+        { name: 'taskId', type: 'uint256' },
+        { name: 'requester', type: 'address' },
+        { name: 'provider', type: 'address' },
+        { name: 'verifier', type: 'address' },
+        { name: 'deliverableURI', type: 'string' },
+        { name: 'proofURI', type: 'string' },
+        { name: 'proofHash', type: 'bytes32' },
+        { name: 'score', type: 'uint16' },
+        { name: 'status', type: 'uint8' },
+        { name: 'createdAt', type: 'uint256' },
+        { name: 'verifiedAt', type: 'uint256' },
+      ],
+    }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  // No global index of pending receipts exists, so the verifier queue walks
+  // ids down from this counter and filters on status.
+  { inputs: [], name: 'nextReceiptId', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
+  { inputs: [], name: 'MAX_SCORE', outputs: [{ name: '', type: 'uint16' }], stateMutability: 'view', type: 'function' },
   {
     inputs: [{ name: 'taskId', type: 'uint256' }],
     name: 'getReceiptByTask',
@@ -144,6 +273,67 @@ export const WORK_RECEIPT_ABI = [
   },
 ] as const;
 
+/** Ownable2Step surface, shared by every owned protocol contract. */
+export const OWNABLE2STEP_ABI = [
+  { inputs: [], name: 'owner', outputs: [{ name: '', type: 'address' }], stateMutability: 'view', type: 'function' },
+  { inputs: [], name: 'pendingOwner', outputs: [{ name: '', type: 'address' }], stateMutability: 'view', type: 'function' },
+  { inputs: [], name: 'acceptOwnership', outputs: [], stateMutability: 'nonpayable', type: 'function' },
+  { inputs: [{ name: 'newOwner', type: 'address' }], name: 'transferOwnership', outputs: [], stateMutability: 'nonpayable', type: 'function' },
+] as const;
+
+/** Contracts that inherit Ownable2Step. WorkReceipt has no owner. */
+export const OWNED_CONTRACTS = [
+  { label: 'AgentRegistry', address: CONTRACTS.AGENT_REGISTRY },
+  { label: 'TaskEscrow', address: CONTRACTS.TASK_ESCROW },
+  { label: 'MicroPayment', address: CONTRACTS.MICRO_PAYMENT },
+  { label: 'Reputation', address: CONTRACTS.REPUTATION },
+  { label: 'VerifierRegistry', address: CONTRACTS.VERIFIER_REGISTRY },
+] as const;
+
+/** VerifierRegistry. Registration is owner-only; verification checks isActiveVerifier. */
+export const VERIFIER_REGISTRY_ABI = [
+  {
+    inputs: [
+      { name: 'wallet', type: 'address' },
+      { name: 'name', type: 'string' },
+      { name: 'verifierType', type: 'uint8' },
+      { name: 'categories', type: 'string[]' },
+      { name: 'metadataURI', type: 'string' },
+    ],
+    name: 'registerVerifier',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  { inputs: [{ name: 'wallet', type: 'address' }], name: 'deactivateVerifier', outputs: [], stateMutability: 'nonpayable', type: 'function' },
+  { inputs: [{ name: 'wallet', type: 'address' }], name: 'reactivateVerifier', outputs: [], stateMutability: 'nonpayable', type: 'function' },
+  { inputs: [{ name: 'wallet', type: 'address' }], name: 'isActiveVerifier', outputs: [{ name: '', type: 'bool' }], stateMutability: 'view', type: 'function' },
+  {
+    inputs: [{ name: 'verifierAddress', type: 'address' }],
+    name: 'getVerifier',
+    outputs: [
+      { name: 'wallet', type: 'address' },
+      { name: 'name', type: 'string' },
+      { name: 'verifierType', type: 'uint8' },
+      { name: 'categories', type: 'string[]' },
+      { name: 'metadataURI', type: 'string' },
+      { name: 'isActive', type: 'bool' },
+      { name: 'registeredAt', type: 'uint256' },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  { inputs: [], name: 'getVerifierCount', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
+  { inputs: [{ name: 'index', type: 'uint256' }], name: 'getVerifierByIndex', outputs: [{ name: '', type: 'address' }], stateMutability: 'view', type: 'function' },
+] as const;
+
+/** VerifierRegistry.VerifierType, by enum ordinal. */
+export const VERIFIER_TYPES = ['Human', 'Service', 'Automated', 'Committee'] as const;
+
+export function hasConfiguredVerifierRegistry(): boolean {
+  return isConfiguredAddress(CONTRACTS.VERIFIER_REGISTRY);
+}
+
 export const ERC20_ABI = [
   { inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }], name: 'approve', outputs: [{ name: '', type: 'bool' }], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [{ name: 'owner', type: 'address' }], name: 'balanceOf', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
@@ -184,7 +374,7 @@ export interface WorkReceiptRecord {
 }
 
 export function hasConfiguredWorkReceipt(): boolean {
-  return CONTRACTS.WORK_RECEIPT.toLowerCase() !== ZERO_ADDRESS.toLowerCase();
+  return isConfiguredAddress(CONTRACTS.WORK_RECEIPT);
 }
 
 export function formatPercentBps(value: bigint | number): string {
@@ -254,7 +444,7 @@ export async function loadAgentVerificationStats(agent: string): Promise<Verific
   if (!hasConfiguredWorkReceipt()) return null;
 
   try {
-    const stats = await publicClient.readContract({
+    const stats = await readContract({
       address: CONTRACTS.WORK_RECEIPT,
       abi: WORK_RECEIPT_ABI,
       functionName: 'getAgentVerificationStats',
@@ -272,7 +462,7 @@ export async function loadTaskReceipt(taskId: bigint): Promise<WorkReceiptRecord
   if (!hasConfiguredWorkReceipt()) return null;
 
   try {
-    const receipt = await publicClient.readContract({
+    const receipt = await readContract({
       address: CONTRACTS.WORK_RECEIPT,
       abi: WORK_RECEIPT_ABI,
       functionName: 'getReceiptByTask',
@@ -286,40 +476,5 @@ export async function loadTaskReceipt(taskId: bigint): Promise<WorkReceiptRecord
   }
 }
 
-// Arc wallet helper
-export async function getWalletProvider() {
-  if (typeof window === 'undefined') return null;
-  const arcWallet = window.__arcWallet;
-  if (!arcWallet) return null;
-  return arcWallet;
-}
-
-export async function connectWallet() {
-  const wallet = await getWalletProvider();
-  if (!wallet) throw new Error('No wallet detected');
-  return wallet.connect();
-}
-
-export async function disconnectWallet() {
-  const wallet = await getWalletProvider();
-  if (!wallet) return;
-  return wallet.disconnect();
-}
-
-export async function sendTransaction(to: string, data: string, value?: string) {
-  const wallet = await getWalletProvider();
-  if (!wallet?.state?.address) throw new Error('Wallet not connected');
-  
-  if (!window.ethereum) throw new Error('No Ethereum provider detected');
-
-  const tx = await window.ethereum.request({
-    method: 'eth_sendTransaction',
-    params: [{
-      from: wallet.state.address,
-      to,
-      data,
-      value: value || '0x0',
-    }],
-  });
-  return tx;
-}
+// Transaction submission lives in @/lib/tx — it needs the connected wallet
+// provider from the store, which this module deliberately does not depend on.

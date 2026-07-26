@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/Ownable2Step.sol";
 
 interface ITaskEscrow {
     function getTask(uint256 taskId) external view returns (
@@ -25,7 +25,7 @@ interface IAgentRegistry {
  * @title Reputation
  * @notice On-chain reputation system with reviews and trust scores
  */
-contract Reputation is Ownable {
+contract Reputation is Ownable2Step {
 
     struct Review {
         uint256 id;
@@ -46,6 +46,11 @@ contract Reputation is Ownable {
         uint256 avgResponseTime;
         uint256 completionRate;   // x100 (e.g., 9500 = 95%)
     }
+
+    /// @dev Ratings are stored scaled by 100 (450 = 4.50 stars).
+    uint256 private constant RATING_SCALE = 100;
+    /// @dev Maximum of the x100 rating scale, i.e. a 5.00-star average.
+    uint256 private constant MAX_SCALED_RATING = 5 * RATING_SCALE;
 
     address public taskEscrow;
     IAgentRegistry public agentRegistry;
@@ -168,9 +173,24 @@ contract Reputation is Ownable {
         uint256[] memory createdAts
     ) {
         uint256[] storage agentReviewIds = agentReviews[agent];
+        uint256 total = agentReviewIds.length;
+
+        // An offset past the end is a valid empty page, not a revert. Clamping
+        // `end` alone underflowed on `end - offset` and reverted with panic 0x11.
+        if (offset >= total) {
+            return (
+                new uint256[](0),
+                new address[](0),
+                new uint8[](0),
+                new string[](0),
+                new uint256[](0),
+                new uint256[](0)
+            );
+        }
+
         uint256 end = offset + limit;
-        if (end > agentReviewIds.length) {
-            end = agentReviewIds.length;
+        if (end > total) {
+            end = total;
         }
         uint256 count = end - offset;
 
@@ -203,7 +223,7 @@ contract Reputation is Ownable {
         if (rep.totalReviews == 0) return 0;
 
         // Rating component (0-60): avg rating / 5 * 60
-        uint256 ratingScore = (rep.averageRating * 60) / 500;
+        uint256 ratingScore = (rep.averageRating * 60) / MAX_SCALED_RATING;
 
         // Completion rate component (0-30)
         uint256 completionScore = (rep.completionRate * 30) / 10000;
@@ -231,9 +251,13 @@ contract Reputation is Ownable {
     // Internal
     function _updateReputation(address agent, uint256 rating) internal {
         ReputationScore storage rep = reputation[agent];
-        
-        // Update average rating (weighted)
-        uint256 totalRatingPoints = rep.averageRating * rep.totalReviews + rating;
+
+        // `averageRating` is scaled by 100, so the incoming 1-5 rating must be
+        // scaled before it is folded into the running mean. Without this the
+        // stored value stays on a 1-5 scale and getTrustScore's /500 term
+        // collapses to 0 for every agent.
+        uint256 totalRatingPoints =
+            rep.averageRating * rep.totalReviews + rating * RATING_SCALE;
         rep.totalReviews += 1;
         rep.averageRating = totalRatingPoints / rep.totalReviews;
     }

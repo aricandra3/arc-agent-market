@@ -1,6 +1,5 @@
 "use client";
 
-import { Eyebrow } from "@/components/Eyebrow";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
@@ -19,6 +18,7 @@ import { MarketplaceHoverGrid } from "@/components/exagora/MarketplaceHoverGrid"
 import { Reveal } from "@/components/exagora/Reveal";
 import { PageHeader } from "@/components/PageHeader";
 import TaskCard from "@/components/TaskCard";
+import { SkillBadge } from "@/components/SkillBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -35,10 +35,11 @@ import {
   formatPercentBps,
   formatUSDC,
   loadAgentVerificationStats,
-  publicClient,
+  readContract,
   shortAddress,
   type VerificationStats,
 } from "@/lib/contracts";
+import { READ_CONCURRENCY, describeReadError, mapLimit } from "@/lib/rpc";
 import { useWalletStore } from "@/lib/store";
 
 interface DashboardAgent {
@@ -78,34 +79,33 @@ export default function DashboardPage() {
     let isCurrent = true;
 
     async function loadTaskRecords(ids: readonly bigint[]) {
-      const records = await Promise.all(
-        [...ids]
-          .slice(-10)
-          .reverse()
-          .map(async (id): Promise<DashboardTask | null> => {
-            try {
-              const data = await publicClient.readContract({
-                address: CONTRACTS.TASK_ESCROW,
-                abi: TASK_ESCROW_ABI,
-                functionName: "getTask",
-                args: [id],
-              });
+      const records = await mapLimit(
+        [...ids].slice(-10).reverse(),
+        READ_CONCURRENCY,
+        async (id): Promise<DashboardTask | null> => {
+          try {
+            const data = await readContract({
+              address: CONTRACTS.TASK_ESCROW,
+              abi: TASK_ESCROW_ABI,
+              functionName: "getTask",
+              args: [id],
+            });
 
-              return {
-                id: Number(id),
-                requester: data[0],
-                provider: data[1],
-                budget: data[2],
-                description: data[3],
-                status: Number(data[4]),
-                createdAt: data[5],
-                deadline: data[6],
-              };
-            } catch (taskError) {
-              console.error(`Failed to load task ${id}:`, taskError);
-              return null;
-            }
-          }),
+            return {
+              id: Number(id),
+              requester: data[0],
+              provider: data[1],
+              budget: data[2],
+              description: data[3],
+              status: Number(data[4]),
+              createdAt: data[5],
+              deadline: data[6],
+            };
+          } catch (taskError) {
+            console.error(`Failed to load task ${id}:`, taskError);
+            return null;
+          }
+        },
       );
 
       return records.filter(
@@ -114,7 +114,7 @@ export default function DashboardPage() {
     }
 
     async function loadAgentProfile(): Promise<DashboardAgent | null> {
-      const isRegistered = await publicClient.readContract({
+      const isRegistered = await readContract({
         address: CONTRACTS.AGENT_REGISTRY,
         abi: AGENT_REGISTRY_ABI,
         functionName: "isRegistered",
@@ -123,15 +123,13 @@ export default function DashboardPage() {
 
       if (!isRegistered) return null;
 
-      const [data, verificationStats] = await Promise.all([
-        publicClient.readContract({
-          address: CONTRACTS.AGENT_REGISTRY,
-          abi: AGENT_REGISTRY_ABI,
-          functionName: "getAgent",
-          args: [walletAddress],
-        }),
-        loadAgentVerificationStats(walletAddress),
-      ]);
+      const data = await readContract({
+        address: CONTRACTS.AGENT_REGISTRY,
+        abi: AGENT_REGISTRY_ABI,
+        functionName: "getAgent",
+        args: [walletAddress],
+      });
+      const verificationStats = await loadAgentVerificationStats(walletAddress);
 
       return {
         name: data[0],
@@ -150,25 +148,26 @@ export default function DashboardPage() {
       setLoadError("");
 
       try {
-        const [profile, requesterIds, providerIds] = await Promise.all([
-          loadAgentProfile(),
-          publicClient.readContract({
-            address: CONTRACTS.TASK_ESCROW,
-            abi: TASK_ESCROW_ABI,
-            functionName: "getRequesterTasks",
-            args: [walletAddress],
-          }),
-          publicClient.readContract({
-            address: CONTRACTS.TASK_ESCROW,
-            abi: TASK_ESCROW_ABI,
-            functionName: "getProviderTasks",
-            args: [walletAddress],
-          }),
-        ]);
-        const [requested, assigned] = await Promise.all([
-          loadTaskRecords(requesterIds),
-          loadTaskRecords(providerIds),
-        ]);
+        // Sequential on purpose. This page reads more than any other — a
+        // profile, two id lists, then up to ten records each — and fanning those
+        // out concurrently is what pushed it past the RPC's ~3-per-second quota.
+        // The shared limiter paces individual calls, but not issuing a burst in
+        // the first place keeps the page off the retry path entirely.
+        const profile = await loadAgentProfile();
+        const requesterIds = await readContract({
+          address: CONTRACTS.TASK_ESCROW,
+          abi: TASK_ESCROW_ABI,
+          functionName: "getRequesterTasks",
+          args: [walletAddress],
+        });
+        const providerIds = await readContract({
+          address: CONTRACTS.TASK_ESCROW,
+          abi: TASK_ESCROW_ABI,
+          functionName: "getProviderTasks",
+          args: [walletAddress],
+        });
+        const requested = await loadTaskRecords(requesterIds);
+        const assigned = await loadTaskRecords(providerIds);
 
         if (!isCurrent) return;
         setAgent(profile);
@@ -176,11 +175,7 @@ export default function DashboardPage() {
         setProviderTasks(assigned);
       } catch (error) {
         console.error("Failed to load dashboard:", error);
-        if (isCurrent) {
-          setLoadError(
-            "Dashboard data could not be read from Arc testnet. Try again shortly.",
-          );
-        }
+        if (isCurrent) setLoadError(describeReadError(error));
       } finally {
         if (isCurrent) setIsLoading(false);
       }
@@ -213,10 +208,10 @@ export default function DashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="app-container space-y-7 py-10 sm:py-14">
-        <Skeleton className="h-28 rounded-[2px] bg-primary/10" />
-        <Skeleton className="h-48 rounded-[2px] bg-primary/10" />
-        <Skeleton className="h-64 rounded-[2px] bg-primary/10" />
+      <div className="app-container space-y-7 py-16 sm:py-24">
+        <Skeleton className="h-28 rounded-lg bg-primary/10" />
+        <Skeleton className="h-48 rounded-lg bg-primary/10" />
+        <Skeleton className="h-64 rounded-lg bg-primary/10" />
       </div>
     );
   }
@@ -231,8 +226,7 @@ export default function DashboardPage() {
 
   return (
     <div
-      className="app-container py-10 sm:py-14"
-      style={{ ["--page-accent" as string]: "var(--accent-gold)" }}
+      className="app-container py-16 sm:py-24"
     >
       <PageHeader
         eyebrow={`Workspace / ${shortAddress(address || "")}`}
@@ -256,18 +250,14 @@ export default function DashboardPage() {
 
       {loadError && (
         <div
-          className="mt-7 rounded-[0.9rem] border border-[#d36c72]/70 bg-[#351b28]/55 px-5 py-4 text-sm text-[#f1b3b7]"
+          className="mt-7 rounded-[var(--radius-surface)] border border-[var(--destructive)]/70 bg-[var(--tint-danger)]/55 px-5 py-4 text-sm text-[var(--destructive-fg)]"
           role="alert"
         >
           {loadError}
         </div>
       )}
 
-      <Reveal className="mt-7 brutal-surface block">
-        <span
-          aria-hidden="true"
-          className="absolute inset-x-0 top-0 z-[1] h-1.5 bg-[var(--page-accent)]"
-        />
+      <Reveal className="mt-7 panel block">
         {agent ? (
           <>
             <div className="flex flex-col gap-5 border-b border-border/55 p-5 sm:flex-row sm:items-start sm:justify-between sm:p-6">
@@ -278,7 +268,7 @@ export default function DashboardPage() {
                   </h2>
                   <Badge
                     variant="outline"
-                    className="border-[#70b7ad]/65 bg-[#102c32] text-[#9cd4cc]"
+                    className="border-[var(--success)]/65 bg-[var(--tint-success)] text-[var(--accent-cyan)]"
                   >
                     <BadgeCheck aria-hidden="true" />
                     Registered agent
@@ -286,13 +276,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
                   {agent.skills.map((skill) => (
-                    <Badge
-                      key={skill}
-                      variant="outline"
-                      className="border-[#416789]/70 bg-[#10243c] text-[#b8d0e6]"
-                    >
-                      {skill}
-                    </Badge>
+                    <SkillBadge key={skill} skill={skill} className="px-3 py-1 text-xs" />
                   ))}
                 </div>
               </div>
@@ -340,7 +324,7 @@ export default function DashboardPage() {
               <div className="flex flex-wrap gap-x-6 gap-y-2 border-t border-border/55 px-5 py-4 font-mono text-xs text-muted-foreground sm:px-6">
                 <span>
                   Pass rate{" "}
-                  <strong className="text-[#9cd4cc]">
+                  <strong className="text-[var(--accent-cyan)]">
                     {formatPercentBps(agent.verificationStats.passRate)}
                   </strong>
                 </span>
@@ -356,7 +340,7 @@ export default function DashboardPage() {
         ) : (
           <div className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <Eyebrow>Agent identity</Eyebrow>
+              <p className="text-sm font-semibold text-foreground">Agent identity</p>
               <h2 className="mt-2 font-display text-xl font-semibold text-foreground">
                 Add a provider profile
               </h2>
@@ -366,7 +350,7 @@ export default function DashboardPage() {
               </p>
             </div>
             <Button asChild>
-              <Link href="/register">Register agent</Link>
+              <Link href="/register">Register an agent</Link>
             </Button>
           </div>
         )}
@@ -375,21 +359,27 @@ export default function DashboardPage() {
       <Tabs defaultValue="requested" className="mt-9">
         <div className="flex flex-col gap-4 border-b border-border/65 pb-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <Eyebrow>Task ledger</Eyebrow>
+            <p className="text-sm font-semibold text-foreground">Task ledger</p>
             <h2 className="mt-2 font-display text-xl font-semibold text-foreground">
               Active work records
             </h2>
           </div>
-          <TabsList variant="line" className="h-auto gap-5 p-0">
-            <TabsTrigger value="requested" className="px-0 pb-2">
+          <TabsList className="h-auto gap-1 rounded-full border border-border/60 bg-[var(--surface-deep)]/70 p-1">
+            <TabsTrigger
+              value="requested"
+              className="gap-2 rounded-full px-4 py-1.5 text-sm font-semibold text-muted-foreground transition-all data-[state=active]:!border-[var(--ink)] data-[state=active]:!bg-[var(--page-accent)] data-[state=active]:!text-[var(--ink)] data-[state=active]:!"
+            >
               Requested
-              <span className="font-mono text-xs text-muted-foreground">
+              <span className="rounded-full bg-current/15 px-1.5 py-0.5 font-mono text-[11px] tabular-nums">
                 {requestedTasks.length}
               </span>
             </TabsTrigger>
-            <TabsTrigger value="provider" className="px-0 pb-2">
+            <TabsTrigger
+              value="provider"
+              className="gap-2 rounded-full px-4 py-1.5 text-sm font-semibold text-muted-foreground transition-all data-[state=active]:!border-[var(--ink)] data-[state=active]:!bg-[var(--page-accent)] data-[state=active]:!text-[var(--ink)] data-[state=active]:!"
+            >
               Provider
-              <span className="font-mono text-xs text-muted-foreground">
+              <span className="rounded-full bg-current/15 px-1.5 py-0.5 font-mono text-[11px] tabular-nums">
                 {providerTasks.length}
               </span>
             </TabsTrigger>
@@ -469,7 +459,7 @@ function DashboardMetric({
       </p>
       <p
         className={`font-display mt-3 text-lg ${
-          accent ? "text-[#9cd4cc]" : "text-foreground"
+          accent ? "text-[var(--accent-cyan)]" : "text-foreground"
         }`}
       >
         {value}

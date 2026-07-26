@@ -1,0 +1,16 @@
+{
+  "network": "arcTestnet",
+  "chainId": 5042002,
+  "deployedAt": "2026-07-25T14:39:00.306Z",
+  "deployer": "0x08A69bb237c3B2a5ab99D16738941F72992b968d",
+  "owner": "0x21542522566a50211dF6AE6E5ad2fF771d0dB2ee",
+  "ownershipPending": false,
+  "AgentRegistry": "0xC0291DccAbE03990329416404650b5B34ce12c0C",
+  "TaskEscrow": "0xee9064F62C4801182e49eFe4fdd4E551479AdEaB",
+  "MicroPayment": "0x5345a4ac3646F895D485F70B13e207Ae73d7c6B8",
+  "Reputation": "0xa886214b8A75258d70f3D4aA5439cd4355E37c94",
+  "VerifierRegistry": "0xF3A220C51A491E349cDf82826D1FaDCC8B6ceFB7",
+  "WorkReceipt": "0x8ed33619d9d5b7e05AaFE604a332f3Efa195Aa77",
+  "USDC": "0x3600000000000000000000000000000000000000",
+  "ownershipAcceptedNote": "acceptOwnership() confirmed on all five Ownable2Step contracts; deploy key holds no privileges."
+}

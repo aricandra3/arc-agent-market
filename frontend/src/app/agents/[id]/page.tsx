@@ -1,6 +1,5 @@
 "use client";
 
-import { Eyebrow } from "@/components/Eyebrow";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -9,6 +8,7 @@ import {
   BriefcaseBusiness,
   CircleDollarSign,
   ExternalLink,
+  MessageSquare,
   RadioTower,
   Star,
 } from "lucide-react";
@@ -16,7 +16,8 @@ import { AgentGlyph } from "@/components/AgentGlyph";
 import { EmptyState } from "@/components/EmptyState";
 import { Reveal } from "@/components/exagora/Reveal";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Badge } from "@/components/ui/badge";
+import { ReviewList } from "@/components/ReviewList";
+import { SkillBadge } from "@/components/SkillBadge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -25,10 +26,11 @@ import {
   AGENT_REGISTRY_ABI,
   CONTRACTS,
   REPUTATION_ABI,
+  explorerAddressUrl,
   formatPercentBps,
   formatUSDC,
   loadAgentVerificationStats,
-  publicClient,
+  readContract,
   type VerificationStats,
 } from "@/lib/contracts";
 import { useWalletStore } from "@/lib/store";
@@ -70,7 +72,7 @@ export default function AgentProfilePage() {
   useEffect(() => {
     async function loadAgent() {
       try {
-        const data = await publicClient.readContract({
+        const data = await readContract({
           address: CONTRACTS.AGENT_REGISTRY,
           abi: AGENT_REGISTRY_ABI,
           functionName: "getAgent",
@@ -91,7 +93,7 @@ export default function AgentProfilePage() {
         });
 
         try {
-          const rep = await publicClient.readContract({
+          const rep = await readContract({
             address: CONTRACTS.REPUTATION,
             abi: REPUTATION_ABI,
             functionName: "getReputation",
@@ -125,11 +127,11 @@ export default function AgentProfilePage() {
     return (
       <div className="app-container grid gap-8 py-10 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="space-y-6">
-          <Skeleton className="h-9 w-64 rounded-[2px] bg-primary/10" />
-          <Skeleton className="h-5 w-full max-w-xl rounded-[2px] bg-primary/10" />
-          <Skeleton className="h-56 w-full rounded-[2px] bg-primary/10" />
+          <Skeleton className="h-9 w-64 rounded-lg bg-primary/10" />
+          <Skeleton className="h-5 w-full max-w-xl rounded-lg bg-primary/10" />
+          <Skeleton className="h-56 w-full rounded-lg bg-primary/10" />
         </div>
-        <Skeleton className="h-80 rounded-[2px] bg-primary/10" />
+        <Skeleton className="h-80 rounded-lg bg-primary/10" />
       </div>
     );
   }
@@ -165,18 +167,9 @@ export default function AgentProfilePage() {
   return (
     <div
       className="app-container grid gap-8 py-10 lg:grid-cols-[minmax(0,1fr)_20rem] lg:py-14"
-      style={{ ["--page-accent" as string]: "var(--accent-cyan)" }}
     >
       <section className="min-w-0 space-y-8">
-        <div className="relative isolate border-b border-border/65 pb-7">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -top-24 -right-[10vw] -left-[10vw] -z-10 h-60"
-            style={{
-              background:
-                "radial-gradient(46% 100% at 30% 0%, color-mix(in srgb, var(--page-accent) 15%, transparent), transparent 72%)",
-            }}
-          />
+        <div className="border-b border-border/65 pb-7">
           <nav className="mb-3 flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
             <Link href="/" className="transition-colors hover:text-foreground">
               Home
@@ -193,13 +186,7 @@ export default function AgentProfilePage() {
           </nav>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0">
-              <Eyebrow
-                accentColor="var(--page-accent)"
-                className="border-[color:color-mix(in_srgb,var(--page-accent)_38%,transparent)] bg-[color:color-mix(in_srgb,var(--page-accent)_9%,transparent)] text-[color:color-mix(in_srgb,var(--page-accent)_82%,var(--foreground))]"
-              >
-                Agent profile
-              </Eyebrow>
-              <div className="mt-4 flex items-center gap-4">
+              <div className="flex items-center gap-4">
                 <AgentGlyph
                   seed={address}
                   name={agent.name}
@@ -207,7 +194,7 @@ export default function AgentProfilePage() {
                   labelClassName="text-lg"
                 />
                 <div className="min-w-0">
-                  <h1 className="font-display text-gradient text-4xl tracking-tight sm:text-5xl">
+                  <h1 className="display-lg text-foreground">
                     {agent.name}
                   </h1>
                   <p className="mt-2 break-all font-mono text-xs leading-5 text-muted-foreground">
@@ -221,31 +208,25 @@ export default function AgentProfilePage() {
               status={agent.isActive ? "active" : "inactive"}
             />
           </div>
-          <p className="mt-6 max-w-3xl text-base leading-7 text-[#b8cce0]">
+          <p className="mt-6 max-w-3xl text-base leading-7 text-[var(--muted-foreground)]">
             {agent.description || "No profile description provided."}
           </p>
           <div className="mt-5 flex flex-wrap gap-2">
             {agent.skills.map((skill) => (
-              <Badge
-                key={skill}
-                variant="outline"
-                className="border-[#416789]/70 bg-[#10243c] text-[#b8d0e6]"
-              >
-                {skill}
-              </Badge>
+              <SkillBadge key={skill} skill={skill} className="px-3 py-1 text-xs" />
             ))}
           </div>
         </div>
 
         <Reveal className="block">
           <div className="mb-4 flex items-center gap-2">
-            <BadgeCheck className="size-4 text-[#9cd4cc]" aria-hidden="true" />
+            <BadgeCheck className="size-4 text-[var(--accent-cyan)]" aria-hidden="true" />
             <h2 className="font-display text-lg font-semibold text-foreground">
               Verified work
             </h2>
           </div>
           {hasVerificationStats ? (
-            <div className="brutal-surface grid sm:grid-cols-3">
+            <div className="panel grid sm:grid-cols-3">
               <Metric
                 label="Receipts"
                 value={Number(
@@ -263,7 +244,7 @@ export default function AgentProfilePage() {
               />
             </div>
           ) : (
-            <div className="brutal-surface p-6">
+            <div className="panel p-6">
               <p className="text-sm leading-6 text-muted-foreground">
                 No verifier-backed work has been recorded for this agent yet.
               </p>
@@ -273,19 +254,19 @@ export default function AgentProfilePage() {
 
         <Reveal className="block" delay={90}>
           <div className="mb-4 flex items-center gap-2">
-            <Star className="size-4 text-[#d4ad6f]" aria-hidden="true" />
+            <Star className="size-4 text-[var(--warning)]" aria-hidden="true" />
             <h2 className="font-display text-lg font-semibold text-foreground">
               Reputation
             </h2>
           </div>
-          <div className="brutal-surface divide-y divide-border/55">
+          <div className="panel divide-y divide-border/55">
             <div className="flex flex-wrap items-center justify-between gap-4 p-5">
               <span className="text-sm text-muted-foreground">
                 Buyer rating
               </span>
               <span className="flex items-center gap-2 font-mono text-sm text-foreground">
                 <Star
-                  className="size-3.5 text-[#d4ad6f]"
+                  className="size-3.5 text-[var(--warning)]"
                   aria-hidden="true"
                 />
                 {rating.toFixed(1)} / {Number(agent.ratingCount)} reviews
@@ -313,15 +294,23 @@ export default function AgentProfilePage() {
             </div>
           </div>
         </Reveal>
+
+        <Reveal className="mt-10 block" delay={160}>
+          <div className="mb-5 flex items-center gap-2">
+            <MessageSquare className="size-4 text-primary" aria-hidden="true" />
+            <h2 className="font-display text-xl font-semibold text-foreground">
+              Reviews
+            </h2>
+          </div>
+          <ReviewList agent={address} />
+        </Reveal>
       </section>
 
       <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
-        <Reveal className="brutal-surface block p-5" delay={120}>
-          <span
-            aria-hidden="true"
-            className="absolute inset-x-0 top-0 h-1.5 bg-[var(--page-accent)]"
-          />
-          <Eyebrow>Commercial terms</Eyebrow>
+        <Reveal className="panel block p-5" delay={120}>
+          <p className="text-sm font-semibold text-foreground">
+            Commercial terms
+          </p>
           <div className="mt-5 space-y-4">
             <PriceRow
               icon={CircleDollarSign}
@@ -359,7 +348,7 @@ export default function AgentProfilePage() {
           )}
           <Button asChild variant="outline" className="w-full">
             <a
-              href={`https://testnet.arcscan.app/address/${address}`}
+              href={explorerAddressUrl(address)}
               target="_blank"
               rel="noopener noreferrer"
             >

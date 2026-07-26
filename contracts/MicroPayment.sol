@@ -3,14 +3,14 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title MicroPayment
  * @notice Payment streams for per-call or per-second billing
  */
-contract MicroPayment is Ownable, ReentrancyGuard {
+contract MicroPayment is Ownable2Step, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     enum StreamType { PerCall, PerSecond }
@@ -166,8 +166,15 @@ contract MicroPayment is Ownable, ReentrancyGuard {
         if (unpaid > 0) {
             uint256 fee = (unpaid * platformFeePercent) / 10000;
             uint256 payout = unpaid - fee;
-            usdc.safeTransfer(stream.receiver, payout);
             stream.totalWithdrawn = accumulated;
+
+            usdc.safeTransfer(stream.receiver, payout);
+            // The fee was deducted from the receiver's payout but never
+            // forwarded, so it stayed stranded in this contract: `refund` below
+            // subtracts the gross `totalWithdrawn`, leaving nobody able to claim it.
+            if (fee > 0) {
+                usdc.safeTransfer(owner(), fee);
+            }
         }
 
         // Refund remaining

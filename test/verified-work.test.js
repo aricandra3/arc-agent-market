@@ -67,7 +67,10 @@ describe("Verified Agent Work", function () {
   async function createSubmittedTask(fixture) {
     const { requester, provider, usdc, taskEscrow } = fixture;
     const budget = ethers.parseUnits("50", 6);
-    const deadline = BigInt(Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60);
+    // Derived from the chain clock, not the wall clock: other tests advance
+    // EVM time, which would push a Date.now()-based deadline into the past.
+    const latest = await ethers.provider.getBlock("latest");
+    const deadline = BigInt(latest.timestamp + 7 * 24 * 60 * 60);
 
     await usdc.connect(requester).approve(await taskEscrow.getAddress(), budget);
     await taskEscrow
@@ -184,7 +187,10 @@ describe("Verified Agent Work", function () {
     const fixture = await deployFixture();
     const { requester, provider, usdc, taskEscrow, workReceipt } = fixture;
     const budget = ethers.parseUnits("50", 6);
-    const deadline = BigInt(Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60);
+    // Derived from the chain clock, not the wall clock: other tests advance
+    // EVM time, which would push a Date.now()-based deadline into the past.
+    const latest = await ethers.provider.getBlock("latest");
+    const deadline = BigInt(latest.timestamp + 7 * 24 * 60 * 60);
 
     await usdc.connect(requester).approve(await taskEscrow.getAddress(), budget);
     await taskEscrow

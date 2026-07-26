@@ -35,14 +35,14 @@ export function LifecycleFlow({ steps }: { steps: Step[] }) {
             style={{ ["--accent" as string]: accents[index % accents.length] }}
           >
             <div className="flex items-center gap-4 lg:block">
-              <span className="relative grid size-12 shrink-0 place-items-center rounded-full border bg-[#0b1f33] font-mono text-sm font-semibold tabular-nums shadow-[0_0_0_6px_#071426] transition-all duration-300 [border-color:color-mix(in_srgb,var(--accent)_35%,transparent)] [color:color-mix(in_srgb,var(--accent)_62%,#e6f1ef)] group-hover/step:[border-color:var(--accent)] group-hover/step:[box-shadow:0_0_0_6px_#071426,0_0_22px_-2px_var(--accent)]">
+              <span className="relative grid size-12 shrink-0 place-items-center rounded-full border bg-[var(--surface-deep)] font-mono text-sm font-semibold tabular-nums shadow-[0_0_0_6px_var(--ink)] transition-all duration-300 [border-color:color-mix(in_srgb,var(--accent)_35%,transparent)] [color:color-mix(in_srgb,var(--accent)_62%,var(--foreground))] group-hover/step:[border-color:var(--accent)] group-hover/step:[box-shadow:0_0_0_6px_var(--ink),0_0_22px_-2px_var(--accent)]">
                 {number}
                 {index === 0 && (
                   <span className="absolute inset-0 animate-ping rounded-full border [border-color:color-mix(in_srgb,var(--accent)_55%,transparent)]" />
                 )}
               </span>
               <Icon
-                className="size-5 text-[#5f82a6] transition-colors duration-300 group-hover/step:[color:var(--accent)] lg:mt-6"
+                className="size-5 text-[var(--muted-foreground)] transition-colors duration-300 group-hover/step:[color:var(--accent)] lg:mt-6"
                 aria-hidden="true"
               />
             </div>

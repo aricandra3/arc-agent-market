@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
 /**
@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/utils/Strings.sol";
  * @notice On-chain registry for AI agents on Arc L1
  * @dev Agents register their identity, skills, and rates
  */
-contract AgentRegistry is Ownable {
+contract AgentRegistry is Ownable2Step {
     using Strings for uint256;
 
     struct Agent {
@@ -28,10 +28,24 @@ contract AgentRegistry is Ownable {
         string metadataURI;       // IPFS URI for extended profile
     }
 
+    /// @dev Ratings are reported scaled by 100 (450 = 4.50 stars) so a half-star
+    ///      average survives integer division. `ratingSum` stays unscaled.
+    uint256 private constant RATING_SCALE = 100;
+
     // State
     mapping(address => Agent) public agents;
     address[] public agentList;
     mapping(string => address[]) public skillIndex;
+
+    /// @dev Position of an agent inside `skillIndex[skill]`, stored as index + 1
+    ///      so that 0 means "not indexed". Enables O(1) removal when an agent
+    ///      changes skills, which previously left the index permanently stale.
+    mapping(bytes32 => mapping(address => uint256)) private skillSlot;
+
+    /// @notice Contracts allowed to mutate agent stats (TaskEscrow, Reputation).
+    /// @dev Several contracts need write access, so a single `owner` check would
+    ///      let only one of them through. Kept as a role map instead.
+    mapping(address => bool) public authorizedWriters;
 
     // Events
     event AgentRegistered(address indexed wallet, string name, string[] skills);
@@ -39,6 +53,7 @@ contract AgentRegistry is Ownable {
     event AgentDeactivated(address indexed wallet);
     event AgentReactivated(address indexed wallet);
     event AgentRatingUpdated(address indexed wallet, uint256 newRating, uint256 ratingCount);
+    event AuthorizedWriterSet(address indexed writer, bool allowed);
 
     // Modifiers
     modifier onlyRegisteredAgent() {
@@ -48,6 +63,11 @@ contract AgentRegistry is Ownable {
 
     modifier onlyActiveAgent() {
         require(agents[msg.sender].isActive, "Agent not active");
+        _;
+    }
+
+    modifier onlyAuthorizedWriter() {
+        require(authorizedWriters[msg.sender], "Not authorized writer");
         _;
     }
 
@@ -87,12 +107,40 @@ contract AgentRegistry is Ownable {
 
         agentList.push(msg.sender);
 
-        // Index skills
         for (uint256 i = 0; i < skills.length; i++) {
-            skillIndex[skills[i]].push(msg.sender);
+            _addToSkillIndex(skills[i], msg.sender);
         }
 
         emit AgentRegistered(msg.sender, name, skills);
+    }
+
+    /// @dev No-op when already indexed, so duplicate skills in the input cannot
+    ///      insert the same agent twice.
+    function _addToSkillIndex(string memory skill, address agent) private {
+        bytes32 key = keccak256(bytes(skill));
+        if (skillSlot[key][agent] != 0) return;
+
+        skillIndex[skill].push(agent);
+        skillSlot[key][agent] = skillIndex[skill].length;
+    }
+
+    function _removeFromSkillIndex(string memory skill, address agent) private {
+        bytes32 key = keccak256(bytes(skill));
+        uint256 slot = skillSlot[key][agent];
+        if (slot == 0) return;
+
+        address[] storage bucket = skillIndex[skill];
+        uint256 index = slot - 1;
+        uint256 lastIndex = bucket.length - 1;
+
+        if (index != lastIndex) {
+            address moved = bucket[lastIndex];
+            bucket[index] = moved;
+            skillSlot[key][moved] = index + 1;
+        }
+
+        bucket.pop();
+        skillSlot[key][agent] = 0;
     }
 
     /**
@@ -104,11 +152,25 @@ contract AgentRegistry is Ownable {
         uint256 ratePerCall,
         string memory metadataURI
     ) external onlyRegisteredAgent {
+        require(skills.length > 0, "At least one skill required");
+
         Agent storage agent = agents[msg.sender];
+
+        // Re-index: dropped skills must stop matching getAgentsBySkill, and
+        // newly added ones must start matching it.
+        string[] memory previousSkills = agent.skills;
+        for (uint256 i = 0; i < previousSkills.length; i++) {
+            _removeFromSkillIndex(previousSkills[i], msg.sender);
+        }
+
         agent.skills = skills;
         agent.ratePerTask = ratePerTask;
         agent.ratePerCall = ratePerCall;
         agent.metadataURI = metadataURI;
+
+        for (uint256 i = 0; i < skills.length; i++) {
+            _addToSkillIndex(skills[i], msg.sender);
+        }
 
         emit AgentUpdated(msg.sender, skills, ratePerTask, ratePerCall);
     }
@@ -131,25 +193,37 @@ contract AgentRegistry is Ownable {
     }
 
     /**
-     * @notice Update agent rating (called by Reputation contract)
+     * @notice Grant or revoke stat-write access for a protocol contract
+     * @dev Must be called for TaskEscrow (recordTaskCompletion) and Reputation
+     *      (updateRating) after deployment, otherwise task approval reverts.
      */
-    function updateRating(address agent, uint256 rating) external {
-        // Only allow Reputation contract to call
-        // For now, only owner can set (will be updated when Reputation is deployed)
-        require(msg.sender == owner(), "Only reputation contract");
-        
-        Agent storage a = agents[agent];
-        a.ratingSum += rating;
-        a.ratingCount += 1;
-        
-        emit AgentRatingUpdated(agent, a.ratingSum / a.ratingCount, a.ratingCount);
+    function setAuthorizedWriter(address writer, bool allowed) external onlyOwner {
+        require(writer != address(0), "Invalid writer");
+        authorizedWriters[writer] = allowed;
+        emit AuthorizedWriterSet(writer, allowed);
     }
 
     /**
-     * @notice Record task completion
+     * @notice Update agent rating (called by Reputation contract)
      */
-    function recordTaskCompletion(address agent, uint256 earnings) external {
-        require(msg.sender == owner(), "Only task escrow contract");
+    function updateRating(address agent, uint256 rating) external onlyAuthorizedWriter {
+        Agent storage a = agents[agent];
+        a.ratingSum += rating;
+        a.ratingCount += 1;
+
+        emit AgentRatingUpdated(agent, _averageRating(a), a.ratingCount);
+    }
+
+    /// @return The mean rating scaled by 100, or 0 when unrated.
+    function _averageRating(Agent storage a) private view returns (uint256) {
+        if (a.ratingCount == 0) return 0;
+        return (a.ratingSum * RATING_SCALE) / a.ratingCount;
+    }
+
+    /**
+     * @notice Record task completion (called by TaskEscrow)
+     */
+    function recordTaskCompletion(address agent, uint256 earnings) external onlyAuthorizedWriter {
         agents[agent].completedTasks += 1;
         agents[agent].totalEarnings += earnings;
     }
@@ -163,7 +237,7 @@ contract AgentRegistry is Ownable {
         uint256 ratePerCall,
         uint256 completedTasks,
         uint256 totalEarnings,
-        uint256 averageRating,
+        uint256 averageRating, // scaled by 100: 450 = 4.50 stars
         uint256 ratingCount,
         bool isActive,
         string memory metadataURI
@@ -177,7 +251,7 @@ contract AgentRegistry is Ownable {
             a.ratePerCall,
             a.completedTasks,
             a.totalEarnings,
-            a.ratingCount > 0 ? a.ratingSum / a.ratingCount : 0,
+            _averageRating(a),
             a.ratingCount,
             a.isActive,
             a.metadataURI
@@ -196,10 +270,9 @@ contract AgentRegistry is Ownable {
         return skillIndex[skill];
     }
 
+    /// @return Mean rating scaled by 100 (450 = 4.50 stars), 0 when unrated.
     function getAverageRating(address wallet) external view returns (uint256) {
-        Agent storage a = agents[wallet];
-        if (a.ratingCount == 0) return 0;
-        return a.ratingSum / a.ratingCount;
+        return _averageRating(agents[wallet]);
     }
 
     function isRegistered(address wallet) external view returns (bool) {

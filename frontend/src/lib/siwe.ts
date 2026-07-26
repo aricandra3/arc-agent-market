@@ -1,4 +1,4 @@
-import { getAddress, verifyMessage } from "viem";
+import { getAddress, toHex, verifyMessage } from "viem";
 import { arcTestnet, publicClient } from "@/lib/contracts";
 import { BRAND } from "@/lib/brand";
 
@@ -12,6 +12,16 @@ export type Eip1193Provider = {
   ) => void;
 };
 
+declare global {
+  interface Window {
+    /**
+     * Legacy single-provider injection. Only used as a fallback for wallets
+     * that predate EIP-6963 — never for sending transactions on its own.
+     */
+    ethereum?: Eip1193Provider;
+  }
+}
+
 export type SiweSession = {
   address: `0x${string}`;
   chainId: number;
@@ -19,6 +29,12 @@ export type SiweSession = {
   signature: string;
   issuedAt: string;
   expiresAt: number;
+  /**
+   * EIP-6963 rdns of the wallet used to sign in. Providers cannot be
+   * serialized, so this is how a reload re-attaches to the *same* wallet
+   * instead of guessing `window.ethereum`.
+   */
+  walletRdns?: string;
 };
 
 const SESSION_KEY = "siwe-session";
@@ -126,6 +142,7 @@ async function verifySignature(
  */
 export async function signInWithEthereum(
   provider: Eip1193Provider,
+  walletRdns?: string,
 ): Promise<SiweSession> {
   const accounts = (await provider.request({
     method: "eth_requestAccounts",
@@ -150,9 +167,12 @@ export async function signInWithEthereum(
     issuedAt,
   });
 
+  // `personal_sign` takes hex-encoded data. MetaMask tolerates a raw UTF-8
+  // string, but spec-strict wallets (hardware, smart-contract, and local dev
+  // nodes) reject it outright — so encode before signing.
   const signature = (await provider.request({
     method: "personal_sign",
-    params: [message, address],
+    params: [toHex(message), address],
   })) as `0x${string}`;
 
   if (typeof signature !== "string") {
@@ -169,6 +189,7 @@ export async function signInWithEthereum(
     signature,
     issuedAt,
     expiresAt: Date.now() + SESSION_TTL_MS,
+    walletRdns,
   };
   saveSession(session);
   return session;

@@ -1,7 +1,7 @@
 "use client";
 
-import { Eyebrow } from "@/components/Eyebrow";
 import { Suspense, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   Check,
@@ -11,26 +11,26 @@ import {
   UserRound,
   Wallet,
 } from "lucide-react";
-import { encodeFunctionData, isAddress, parseUnits } from "viem";
+import { encodeFunctionData, isAddress, parseEventLogs, parseUnits } from "viem";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/EmptyState";
 import { Reveal } from "@/components/exagora/Reveal";
 import { TransactionButton } from "@/components/exagora/TransactionButton";
 import { PageHeader } from "@/components/PageHeader";
-import { TransactionState } from "@/components/TransactionState";
-import { Badge } from "@/components/ui/badge";
+import {
+  TransactionState,
+  type TransactionPhase,
+} from "@/components/TransactionState";
+import { SkillBadge } from "@/components/SkillBadge";
+import { useWrongNetwork } from "@/lib/useWrongNetwork";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  CONTRACTS,
-  ERC20_ABI,
-  TASK_ESCROW_ABI,
-  isUserRejectedError,
-  sendTransaction,
-} from "@/lib/contracts";
+import { CONTRACTS, ERC20_ABI, TASK_ESCROW_ABI, ZERO_ADDRESS } from "@/lib/contracts";
+import { describeTxError, sendTransaction, waitForTx } from "@/lib/tx";
 import { useWalletStore } from "@/lib/store";
 
 type CreateTaskPhase =
@@ -38,6 +38,7 @@ type CreateTaskPhase =
   | "approving"
   | "creating"
   | "submitted"
+  | "confirmed"
   | "failed";
 
 export default function CreateTaskPageWrapper() {
@@ -45,7 +46,7 @@ export default function CreateTaskPageWrapper() {
     <Suspense
       fallback={
         <div className="app-container max-w-5xl py-12">
-          <Skeleton className="h-[34rem] rounded-[2px] bg-primary/10" />
+          <Skeleton className="h-[34rem] rounded-lg bg-primary/10" />
         </div>
       }
     >
@@ -57,6 +58,7 @@ export default function CreateTaskPageWrapper() {
 function CreateTaskPage() {
   const searchParams = useSearchParams();
   const { isConnected } = useWalletStore();
+  const wrongNetwork = useWrongNetwork();
   const [form, setForm] = useState({
     provider: searchParams.get("provider") || "",
     description: "",
@@ -66,6 +68,7 @@ function CreateTaskPage() {
   });
   const [phase, setPhase] = useState<CreateTaskPhase>("idle");
   const [txHash, setTxHash] = useState("");
+  const [taskId, setTaskId] = useState("");
   const [error, setError] = useState("");
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -102,7 +105,11 @@ function CreateTaskPage() {
         functionName: "approve",
         args: [CONTRACTS.TASK_ESCROW, budgetWei],
       });
-      await sendTransaction(CONTRACTS.USDC, approveData);
+      // The allowance must be confirmed on chain before createTask runs —
+      // otherwise safeTransferFrom reverts on a not-yet-mined approval.
+      await waitForTx(
+        await sendTransaction({ to: CONTRACTS.USDC, data: approveData }),
+      );
 
       setPhase("creating");
       const deadline = BigInt(
@@ -112,8 +119,7 @@ function CreateTaskPage() {
         .split(",")
         .map((skill) => skill.trim())
         .filter(Boolean);
-      const provider =
-        form.provider || "0x0000000000000000000000000000000000000000";
+      const provider = form.provider || ZERO_ADDRESS;
       const createData = encodeFunctionData({
         abi: TASK_ESCROW_ABI,
         functionName: "createTask",
@@ -126,21 +132,29 @@ function CreateTaskPage() {
         ],
       });
 
-      const createTx = await sendTransaction(
-        CONTRACTS.TASK_ESCROW,
-        createData,
-      );
-      setTxHash(createTx);
+      const createHash = await sendTransaction({
+        to: CONTRACTS.TASK_ESCROW,
+        data: createData,
+      });
+      setTxHash(createHash);
       setPhase("submitted");
       toast.success("Task submitted to Arc", {
-        description: "Track the escrow transaction on Arcscan.",
+        description: "Waiting for the escrow transaction to confirm.",
+      });
+
+      const receipt = await waitForTx(createHash);
+      const [created] = parseEventLogs({
+        abi: TASK_ESCROW_ABI,
+        eventName: "TaskCreated",
+        logs: receipt.logs,
+      });
+      if (created) setTaskId(created.args.taskId.toString());
+      setPhase("confirmed");
+      toast.success("Task escrowed", {
+        description: "The budget is locked and the task is live.",
       });
     } catch (submitError: unknown) {
-      const message = isUserRejectedError(submitError)
-        ? "The wallet transaction was cancelled."
-        : submitError instanceof Error
-          ? submitError.message
-          : "Task creation failed.";
+      const message = describeTxError(submitError);
       console.error("Failed to create task:", submitError);
       setError(message);
       setPhase("failed");
@@ -170,22 +184,24 @@ function CreateTaskPage() {
     idle: "Create task & escrow USDC",
     approving: "Approve USDC in wallet",
     creating: "Create task in wallet",
-    submitted: "Task submitted",
+    submitted: "Confirming on Arc",
+    confirmed: "Task escrowed",
     failed: "Try again",
   }[phase];
-  const transactionPhase =
+  const transactionPhase: TransactionPhase =
     phase === "submitted"
       ? "submitted"
-      : phase === "failed"
-        ? "failed"
-        : isBusy
-          ? "signing"
-          : "idle";
+      : phase === "confirmed"
+        ? "confirmed"
+        : phase === "failed"
+          ? "failed"
+          : isBusy
+            ? "signing"
+            : "idle";
 
   return (
     <div
-      className="app-container max-w-6xl py-10 sm:py-14"
-      style={{ ["--page-accent" as string]: "var(--accent-azure)" }}
+      className="app-container max-w-6xl py-16 sm:py-24"
     >
       <PageHeader
         eyebrow="Task escrow"
@@ -199,7 +215,7 @@ function CreateTaskPage() {
         onSubmit={handleSubmit}
         className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]"
       >
-        <Reveal className="brutal-surface block space-y-6 p-5 sm:p-7">
+        <Reveal className="panel block space-y-6 p-5 sm:p-7">
           <Field label="Provider address" htmlFor="provider">
             <Input
               id="provider"
@@ -277,25 +293,15 @@ function CreateTaskPage() {
           {skills.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {skills.map((skill) => (
-                <Badge
-                  key={skill}
-                  variant="outline"
-                  className="border-[#416789]/70 bg-[#10243c] text-[#b8d0e6]"
-                >
-                  {skill}
-                </Badge>
+                <SkillBadge key={skill} skill={skill} className="px-3 py-1 text-xs" />
               ))}
             </div>
           )}
         </Reveal>
 
         <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
-          <Reveal className="brutal-surface block p-5" delay={100}>
-            <span
-              aria-hidden="true"
-              className="absolute inset-x-0 top-0 h-1.5 bg-[var(--accent-azure)]"
-            />
-            <Eyebrow>Escrow summary</Eyebrow>
+          <Reveal className="panel block p-5" delay={100}>
+            <p className="text-sm font-semibold text-foreground">Escrow summary</p>
             <div className="mt-5 space-y-4">
               <SummaryRow
                 icon={CircleDollarSign}
@@ -339,7 +345,7 @@ function CreateTaskPage() {
 
           {error && (
             <p
-              className="rounded-[0.65rem] border border-[#d36c72]/55 bg-[#d36c72]/10 p-3 text-sm text-[#efa2a7]"
+              className="rounded-[var(--radius)] border border-[var(--destructive)]/55 bg-[var(--destructive)]/10 p-3 text-sm text-[var(--destructive-fg)]"
               role="alert"
             >
               {error}
@@ -352,16 +358,38 @@ function CreateTaskPage() {
             message={error || undefined}
           />
 
+          {phase === "confirmed" && (
+            <div className="space-y-3 rounded-[var(--radius)] border border-[var(--success)]/50 bg-[var(--success)]/10 p-4">
+              <p className="text-sm font-semibold text-[var(--accent-cyan)]">
+                Budget escrowed on Arc
+              </p>
+              {taskId ? (
+                <Button asChild size="sm" className="w-full">
+                  <Link href={`/tasks/${taskId}`}>Open task #{taskId}</Link>
+                </Button>
+              ) : (
+                <Button asChild size="sm" variant="outline" className="w-full">
+                  <Link href="/dashboard">Open dashboard</Link>
+                </Button>
+              )}
+            </div>
+          )}
+
           <TransactionButton
             phase={transactionPhase}
             type="submit"
             size="lg"
             className="w-full"
-            disabled={isBusy || phase === "submitted"}
-            submittedLabel="Task submitted"
+            disabled={
+              isBusy ||
+              phase === "submitted" ||
+              phase === "confirmed" ||
+              wrongNetwork
+            }
+            submittedLabel="Confirming on Arc"
           >
             <FilePlus2 aria-hidden="true" />
-            {buttonLabel}
+            {wrongNetwork ? "Switch to Arc Testnet first" : buttonLabel}
           </TransactionButton>
         </aside>
       </form>
@@ -384,7 +412,7 @@ function Field({
     <div className="space-y-2">
       <Label htmlFor={htmlFor}>
         {label}
-        {required && <span className="text-[#efa2a7]"> *</span>}
+        {required && <span className="text-[var(--destructive-fg)]"> *</span>}
       </Label>
       {children}
     </div>
@@ -429,7 +457,7 @@ function TransactionStep({
       <span
         className={`flex size-7 items-center justify-center border font-mono text-[10px] ${
           complete
-            ? "border-[#6eb8ad]/55 bg-[#6eb8ad]/12 text-[#9cd4cc]"
+            ? "border-[var(--success)]/55 bg-[var(--success)]/12 text-[var(--accent-cyan)]"
             : active
               ? "border-primary bg-primary text-primary-foreground"
               : "border-border bg-secondary text-muted-foreground"

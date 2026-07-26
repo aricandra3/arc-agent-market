@@ -6,6 +6,7 @@ import {
   Radio,
 } from "lucide-react";
 import { ActiveBorder } from "@/components/exagora/ActiveBorder";
+import { explorerTxUrl } from "@/lib/contracts";
 import { cn } from "@/lib/utils";
 
 export type TransactionPhase =
@@ -25,22 +26,26 @@ const states = {
   signing: {
     label: "Waiting for wallet signature",
     icon: LoaderCircle,
-    className: "text-[#c7dbf4]",
+    className: "text-[var(--foreground)]",
+    accent: "var(--accent-azure)",
   },
   submitted: {
     label: "Transaction submitted",
     icon: Radio,
-    className: "text-[#c7dbf4]",
+    className: "text-[var(--foreground)]",
+    accent: "var(--accent-cyan)",
   },
   confirmed: {
     label: "Transaction confirmed",
     icon: CircleCheck,
-    className: "text-[#9cd4cc]",
+    className: "text-[var(--accent-cyan)]",
+    accent: "var(--success)",
   },
   failed: {
     label: "Transaction failed",
     icon: CircleAlert,
-    className: "text-[#efa2a7]",
+    className: "text-[var(--destructive-fg)]",
+    accent: "var(--destructive)",
   },
 } as const;
 
@@ -58,7 +63,12 @@ export function TransactionState({
 
   return (
     <ActiveBorder active={phase === "signing" || phase === "submitted"}>
-      <div className="min-h-16 p-4" aria-live="polite">
+      <div className="relative min-h-16 p-4 pl-5" aria-live="polite">
+        <span
+          aria-hidden="true"
+          className="absolute inset-y-0 left-0 w-1"
+          style={{ background: state.accent }}
+        />
         <div className={cn("flex items-start gap-3", state.className)}>
           <Icon
             className={cn(
@@ -76,7 +86,7 @@ export function TransactionState({
             )}
             {hash && (
               <a
-                href={`https://testnet.arcscan.app/tx/${hash}`}
+                href={explorerTxUrl(hash)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="mt-2 inline-flex items-center gap-1 font-mono text-xs text-primary hover:text-foreground"

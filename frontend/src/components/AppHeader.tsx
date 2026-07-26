@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  ChevronRight,
   CircleAlert,
   ExternalLink,
   Loader2,
@@ -10,11 +11,13 @@ import {
   Menu,
   QrCode,
   Radio,
+  ShieldCheck,
   Wallet,
 } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { ExAgoraMark } from "@/components/ExAgoraMark";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -41,6 +44,7 @@ import { BRAND } from "@/lib/brand";
 import { arcTestnet, shortAddress } from "@/lib/contracts";
 import {
   clearSession,
+  ensureArcChain,
   loadSession,
   signInWithEthereum,
   type Eip1193Provider,
@@ -58,24 +62,48 @@ const WALLETCONNECT_PROJECT_ID =
 
 const navItems = [
   { href: "/agents", label: "Agents" },
+  { href: "/tasks", label: "Tasks" },
+  { href: "/verify", label: "Verify" },
   { href: "/register", label: "Register" },
   { href: "/tasks/create", label: "Create task" },
   { href: "/dashboard", label: "Dashboard" },
 ];
 
+/**
+ * The longest matching nav href wins, so `/tasks/create` highlights "Create
+ * task" only — not "Tasks" as well.
+ */
+function activeNavHref(pathname: string): string | null {
+  return navItems.reduce<string | null>((best, item) => {
+    const matches =
+      pathname === item.href || pathname.startsWith(`${item.href}/`);
+    if (!matches) return best;
+    return !best || item.href.length > best.length ? item.href : best;
+  }, null);
+}
+
 export default function AppHeader() {
   const pathname = usePathname();
-  const { address, isConnected, setConnected, setDisconnected } =
-    useWalletStore();
+  const {
+    address,
+    chainId,
+    isConnected,
+    provider: activeProvider,
+    walletRdns,
+    setConnected,
+    setProvider,
+    setDisconnected,
+  } = useWalletStore();
   const injectedWallets = useInjectedWallets();
+  const activeHref = activeNavHref(pathname);
+
+  const wrongNetwork =
+    isConnected && chainId !== null && chainId !== arcTestnet.id;
 
   const [connectingId, setConnectingId] = useState<string | null>(null);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [error, setError] = useState("");
-  const [activeProvider, setActiveProvider] = useState<Eip1193Provider | null>(
-    null,
-  );
 
   const isConnecting = connectingId !== null;
   const hasLegacyInjected =
@@ -83,20 +111,55 @@ export default function AppHeader() {
 
   const handleDisconnect = useCallback(() => {
     clearSession();
-    setActiveProvider(null);
     setDisconnected();
   }, [setDisconnected]);
+
+  const handleSwitchNetwork = useCallback(async () => {
+    if (!activeProvider) {
+      toast.message("Open your wallet and switch to Arc Testnet.");
+      return;
+    }
+    await ensureArcChain(activeProvider);
+  }, [activeProvider]);
 
   // Restore a previous SIWE session on load.
   useEffect(() => {
     const session = loadSession();
     if (!session) return;
-    setConnected(session.address, session.chainId);
-    if (typeof window === "undefined" || !window.ethereum) return;
-    const provider = window.ethereum as unknown as Eip1193Provider;
-    const frame = requestAnimationFrame(() => setActiveProvider(provider));
-    return () => cancelAnimationFrame(frame);
+    setConnected(
+      session.address,
+      session.chainId,
+      null,
+      session.walletRdns ?? null,
+    );
   }, [setConnected]);
+
+  // Re-attach the provider once wallet discovery finishes. A session records
+  // which wallet signed in (rdns), so a reload reconnects to that exact wallet
+  // rather than whichever extension happens to own `window.ethereum`.
+  useEffect(() => {
+    if (activeProvider || !isConnected) return;
+
+    if (walletRdns) {
+      const match = injectedWallets.find(
+        (wallet) => wallet.info.rdns === walletRdns,
+      );
+      if (match) {
+        setProvider(match.provider);
+      }
+      // A WalletConnect session cannot be resumed silently — the user has to
+      // reconnect, and every transaction path surfaces that.
+      return;
+    }
+
+    if (injectedWallets.length === 1) {
+      setProvider(injectedWallets[0].provider, injectedWallets[0].info.rdns);
+      return;
+    }
+    if (injectedWallets.length === 0 && typeof window !== "undefined" && window.ethereum) {
+      setProvider(window.ethereum as unknown as Eip1193Provider);
+    }
+  }, [activeProvider, injectedWallets, isConnected, setProvider, walletRdns]);
 
   // Live wallet events — react to account/chain changes from the wallet.
   useEffect(() => {
@@ -109,7 +172,7 @@ export default function AppHeader() {
         toast.message("Wallet disconnected");
       } else {
         handleDisconnect();
-        toast.message("Account changed — please reconnect to continue.");
+        toast.message("Account changed. Reconnect to continue.");
       }
     };
     const onChainChanged = (...args: unknown[]) => {
@@ -133,13 +196,17 @@ export default function AppHeader() {
   }, [activeProvider, handleDisconnect]);
 
   const runSignIn = useCallback(
-    async (provider: Eip1193Provider, id: string, label: string) => {
+    async (
+      provider: Eip1193Provider,
+      id: string,
+      label: string,
+      rdns?: string,
+    ) => {
       setError("");
       setConnectingId(id);
       try {
-        const session = await signInWithEthereum(provider);
-        setActiveProvider(provider);
-        setConnected(session.address, session.chainId);
+        const session = await signInWithEthereum(provider, rdns);
+        setConnected(session.address, session.chainId, provider, rdns ?? null);
         setShowModal(false);
         toast.success(`Connected with ${label}`, {
           description: shortAddress(session.address),
@@ -165,7 +232,12 @@ export default function AppHeader() {
 
   const connectInjected = useCallback(
     (wallet: DiscoveredWallet) =>
-      runSignIn(wallet.provider, wallet.info.rdns, wallet.info.name),
+      runSignIn(
+        wallet.provider,
+        wallet.info.rdns,
+        wallet.info.name,
+        wallet.info.rdns,
+      ),
     [runSignIn],
   );
 
@@ -174,11 +246,7 @@ export default function AppHeader() {
       setError("No browser wallet detected.");
       return;
     }
-    runSignIn(
-      window.ethereum as unknown as Eip1193Provider,
-      "legacy",
-      "Browser wallet",
-    );
+    runSignIn(window.ethereum, "legacy", "Browser wallet");
   }, [runSignIn]);
 
   const connectWalletConnect = useCallback(async () => {
@@ -220,7 +288,7 @@ export default function AppHeader() {
   return (
     <>
       <header className="fixed inset-x-0 top-0 z-40 px-3 pt-3 sm:px-5">
-        <div className="glass-surface mx-auto flex h-14 max-w-7xl items-center justify-between px-3 sm:px-4">
+        <div className="nav-surface mx-auto flex h-14 max-w-7xl items-center justify-between px-3 sm:px-4">
           <div className="flex min-w-0 items-center gap-7">
             <Link
               href="/"
@@ -233,9 +301,7 @@ export default function AppHeader() {
             </Link>
             <nav className="hidden items-center gap-1 md:flex">
               {navItems.map((item) => {
-                const active =
-                  pathname === item.href ||
-                  (item.href !== "/" && pathname.startsWith(`${item.href}/`));
+                const active = activeHref === item.href;
                 return (
                   <Button
                     key={item.href}
@@ -255,16 +321,21 @@ export default function AppHeader() {
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="hidden items-center gap-2 border-r border-border/60 pr-3 lg:flex">
-              <Radio className="size-3.5 text-[#6eb8ad]" aria-hidden="true" />
-              <span className="font-mono text-[10px] text-muted-foreground">
+            <ThemeToggle />
+            <span className="hidden items-center gap-1.5 rounded-full border border-[var(--success)]/40 bg-[var(--success)]/10 px-2.5 py-1 lg:inline-flex">
+              <span className="relative flex size-1.5">
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-[var(--success)] opacity-75" />
+                <span className="relative inline-flex size-1.5 rounded-full bg-[var(--success)]" />
+              </span>
+              <span className="font-mono text-[10px] tracking-wide text-[var(--accent-cyan)]">
                 Arc Testnet
               </span>
-            </div>
+            </span>
 
             {isConnected ? (
               <div className="hidden items-center gap-2 md:flex">
-                <span className="font-mono text-xs text-muted-foreground">
+                <span className="inline-flex items-center gap-2 rounded-full border border-[var(--ink)] bg-[var(--success)] px-3 py-1.5 font-mono text-xs font-semibold text-[var(--ink)]">
+                  <span className="size-1.5 rounded-full bg-[var(--ink)]" />
                   {shortAddress(address ?? "")}
                 </span>
                 <Tooltip>
@@ -311,7 +382,7 @@ export default function AppHeader() {
               <SheetContent className="w-[min(88vw,22rem)]">
                 <SheetHeader className="border-b border-border/60 px-5 py-5 text-left">
                   <SheetTitle className="flex items-center gap-2">
-                    <ExAgoraMark className="text-primary" />
+                    <ExAgoraMark />
                     {BRAND.name}
                   </SheetTitle>
                   <SheetDescription>{BRAND.descriptor}</SheetDescription>
@@ -322,8 +393,8 @@ export default function AppHeader() {
                       <Link
                         href={item.href}
                         className={cn(
-                          "flex min-h-10 items-center rounded-[0.65rem] border border-transparent px-3 text-sm text-muted-foreground hover:border-border hover:bg-accent hover:text-foreground",
-                          pathname === item.href &&
+                          "flex min-h-10 items-center rounded-[var(--radius)] border border-transparent px-3 text-sm text-muted-foreground hover:border-border hover:bg-accent hover:text-foreground",
+                          activeHref === item.href &&
                             "border-border bg-accent text-foreground",
                         )}
                       >
@@ -335,7 +406,7 @@ export default function AppHeader() {
                 <div className="mt-auto border-t border-border/60 p-4">
                   <div className="mb-4 flex items-center gap-2">
                     <Radio
-                      className="size-3.5 text-[#6eb8ad]"
+                      className="size-3.5 text-[var(--success)]"
                       aria-hidden="true"
                     />
                     <span className="font-mono text-xs text-muted-foreground">
@@ -377,20 +448,56 @@ export default function AppHeader() {
             </Sheet>
           </div>
         </div>
+
+        {wrongNetwork && (
+          <div
+            role="alert"
+            className="mx-auto mt-2 flex max-w-7xl flex-col items-start gap-2 rounded-[var(--radius)] border border-[var(--warning)]/50 bg-[var(--tint-warning)]/85 px-4 py-2.5 text-sm text-[var(--warning-fg)] backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between"
+          >
+            <span className="flex items-center gap-2">
+              <CircleAlert className="size-4 shrink-0" aria-hidden="true" />
+              Wrong network. Switch to Arc Testnet to transact.
+            </span>
+            <Button
+              size="xs"
+              variant="outline"
+              className="border-[var(--warning)]/55 text-[var(--warning-fg)]"
+              onClick={handleSwitchNetwork}
+            >
+              Switch to Arc Testnet
+            </Button>
+          </div>
+        )}
       </header>
 
       <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Connect a wallet</DialogTitle>
-            <DialogDescription>
-              Pick any EVM wallet and sign a gas-free message to prove ownership
-              (Sign-In with Ethereum). No transaction is sent.
+        <DialogContent className="overflow-hidden">
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 -top-20 h-40 bg-[radial-gradient(50%_100%_at_50%_0%,color-mix(in_srgb,var(--accent-cyan)_16%,transparent),transparent_72%)]"
+          />
+          <DialogHeader className="relative">
+            <span
+              className="sticker-chip mb-3 w-fit"
+              style={{ ["--chip-bg" as string]: "var(--accent-cyan)" }}
+            >
+              <ShieldCheck className="size-3.5" aria-hidden="true" />
+              Gas-free · SIWE
+            </span>
+            <DialogTitle className="font-display flex items-center gap-3 text-2xl">
+              <span className="grid size-10 shrink-0 place-items-center rounded-[var(--radius)] border border-[var(--ink)] bg-[var(--accent-cyan)] text-[var(--ink)]">
+                <Wallet className="size-5" aria-hidden="true" />
+              </span>
+              Connect a wallet
+            </DialogTitle>
+            <DialogDescription className="text-sm">
+              Pick any EVM wallet and sign a message to prove ownership. No
+              transaction or gas fee.
             </DialogDescription>
           </DialogHeader>
 
           {error && (
-            <div className="flex gap-3 rounded-[0.65rem] border border-[#d36c72]/55 bg-[#d36c72]/10 p-3 text-sm text-[#efa2a7]">
+            <div className="relative flex gap-3 rounded-[var(--radius)] border border-[var(--destructive)]/55 bg-[var(--destructive)]/10 p-3 text-sm text-[var(--destructive-fg)]">
               <CircleAlert
                 className="mt-0.5 size-4 shrink-0"
                 aria-hidden="true"
@@ -399,7 +506,7 @@ export default function AppHeader() {
             </div>
           )}
 
-          <div className="space-y-2">
+          <div className="relative space-y-2">
             {injectedWallets.map((wallet) => (
               <WalletOptionButton
                 key={wallet.info.uuid}
@@ -409,6 +516,7 @@ export default function AppHeader() {
                 disabled={isConnecting}
                 onClick={() => connectInjected(wallet)}
                 iconUrl={wallet.info.icon}
+                detected
               />
             ))}
 
@@ -420,6 +528,8 @@ export default function AppHeader() {
                 disabled={isConnecting}
                 onClick={connectLegacy}
                 icon={<Wallet className="size-4" aria-hidden="true" />}
+                accent="var(--accent-cyan)"
+                detected
               />
             )}
 
@@ -430,19 +540,29 @@ export default function AppHeader() {
               disabled={isConnecting}
               onClick={connectWalletConnect}
               icon={<QrCode className="size-4" aria-hidden="true" />}
+              accent="var(--accent-azure)"
             />
           </div>
 
-          {injectedWallets.length === 0 && !hasLegacyInjected && (
+          {injectedWallets.length === 0 && !hasLegacyInjected ? (
             <a
               href="https://ethereum.org/en/wallets/find-wallet/"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary"
+              className="relative inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary"
             >
               No wallet detected? Find an EVM wallet
               <ExternalLink className="size-3" aria-hidden="true" />
             </a>
+          ) : (
+            <div className="relative flex items-center gap-2 rounded-[var(--radius)] border border-border/50 bg-[var(--surface-deep)]/60 px-3 py-2.5 text-[11px] text-muted-foreground">
+              <ShieldCheck
+                className="size-3.5 shrink-0 text-[var(--success)]"
+                aria-hidden="true"
+              />
+              Signing is free and only proves wallet ownership. Your keys never
+              leave your wallet.
+            </div>
           )}
         </DialogContent>
       </Dialog>
@@ -458,6 +578,8 @@ function WalletOptionButton({
   onClick,
   iconUrl,
   icon,
+  accent,
+  detected = false,
 }: {
   name: string;
   subtitle: string;
@@ -466,30 +588,50 @@ function WalletOptionButton({
   onClick: () => void;
   iconUrl?: string;
   icon?: ReactNode;
+  accent?: string;
+  detected?: boolean;
 }) {
   return (
-    <Button
-      variant="outline"
-      className="h-auto w-full justify-start gap-3 px-4 py-3 text-left"
+    <button
+      type="button"
       onClick={onClick}
       disabled={disabled}
+      className="group/wallet flex w-full items-center gap-3 rounded-[var(--radius-surface)] border border-border bg-[var(--surface-deep)]/60 px-3.5 py-3 text-left transition-[transform,border-color,box-shadow] duration-150 hover:-translate-y-px hover:border-[var(--accent-cyan)]/50 focus-visible:border-[var(--accent-cyan)]/60 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-60"
     >
-      <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-[0.6rem] border border-border bg-secondary text-primary">
+      <span
+        className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-[var(--radius)] border border-[var(--ink)] text-[var(--ink)]"
+        style={{ background: accent ?? "var(--surface-strong)" }}
+      >
         {loading ? (
-          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+          <Loader2
+            className={accent ? "size-4 animate-spin" : "size-4 animate-spin text-[var(--muted-foreground)]"}
+            aria-hidden="true"
+          />
         ) : iconUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={iconUrl} alt="" className="size-5 object-contain" />
+          <img src={iconUrl} alt="" className="size-6 object-contain" />
         ) : (
           icon
         )}
       </span>
-      <span className="min-w-0">
-        <span className="block text-sm text-foreground">{name}</span>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          {name}
+          {detected && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-[var(--success)]/15 px-1.5 py-px text-[9px] font-medium tracking-wide text-[var(--accent-cyan)] uppercase">
+              <span className="size-1 rounded-full bg-[var(--success)]" />
+              Detected
+            </span>
+          )}
+        </span>
         <span className="block text-xs font-normal text-muted-foreground">
           {subtitle}
         </span>
       </span>
-    </Button>
+      <ChevronRight
+        className="size-4 shrink-0 text-muted-foreground transition-transform duration-150 group-hover/wallet:translate-x-0.5 group-hover/wallet:text-[var(--accent-cyan)]"
+        aria-hidden="true"
+      />
+    </button>
   );
 }
