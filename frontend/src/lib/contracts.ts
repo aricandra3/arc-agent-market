@@ -1,5 +1,5 @@
 import { createPublicClient, http, formatUnits } from 'viem';
-import { withRpcRetry } from '@/lib/rpc';
+import { readLimiter, withRpcRetry } from '@/lib/rpc';
 
 export const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as const;
 
@@ -112,9 +112,13 @@ export const publicClient = createPublicClient({
 export const readContract: typeof publicClient.readContract = ((
   args: Parameters<typeof publicClient.readContract>[0],
 ) =>
-  withRpcRetry(() =>
-    publicClient.readContract(args),
-  )) as typeof publicClient.readContract;
+  withRpcRetry(async () => {
+    // Paced first, retried second: the gate keeps normal traffic under the
+    // quota, and retry only covers the cases where the estimate is off — other
+    // tabs, a background refetch, or a shifting server-side limit.
+    await readLimiter.acquire();
+    return publicClient.readContract(args);
+  })) as typeof publicClient.readContract;
 
 // ABIs (minimal - only what we need)
 export const AGENT_REGISTRY_ABI = [

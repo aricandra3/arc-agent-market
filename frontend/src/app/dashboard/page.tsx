@@ -123,15 +123,13 @@ export default function DashboardPage() {
 
       if (!isRegistered) return null;
 
-      const [data, verificationStats] = await Promise.all([
-        readContract({
-          address: CONTRACTS.AGENT_REGISTRY,
-          abi: AGENT_REGISTRY_ABI,
-          functionName: "getAgent",
-          args: [walletAddress],
-        }),
-        loadAgentVerificationStats(walletAddress),
-      ]);
+      const data = await readContract({
+        address: CONTRACTS.AGENT_REGISTRY,
+        abi: AGENT_REGISTRY_ABI,
+        functionName: "getAgent",
+        args: [walletAddress],
+      });
+      const verificationStats = await loadAgentVerificationStats(walletAddress);
 
       return {
         name: data[0],
@@ -150,25 +148,26 @@ export default function DashboardPage() {
       setLoadError("");
 
       try {
-        const [profile, requesterIds, providerIds] = await Promise.all([
-          loadAgentProfile(),
-          readContract({
-            address: CONTRACTS.TASK_ESCROW,
-            abi: TASK_ESCROW_ABI,
-            functionName: "getRequesterTasks",
-            args: [walletAddress],
-          }),
-          readContract({
-            address: CONTRACTS.TASK_ESCROW,
-            abi: TASK_ESCROW_ABI,
-            functionName: "getProviderTasks",
-            args: [walletAddress],
-          }),
-        ]);
-        const [requested, assigned] = await Promise.all([
-          loadTaskRecords(requesterIds),
-          loadTaskRecords(providerIds),
-        ]);
+        // Sequential on purpose. This page reads more than any other — a
+        // profile, two id lists, then up to ten records each — and fanning those
+        // out concurrently is what pushed it past the RPC's ~3-per-second quota.
+        // The shared limiter paces individual calls, but not issuing a burst in
+        // the first place keeps the page off the retry path entirely.
+        const profile = await loadAgentProfile();
+        const requesterIds = await readContract({
+          address: CONTRACTS.TASK_ESCROW,
+          abi: TASK_ESCROW_ABI,
+          functionName: "getRequesterTasks",
+          args: [walletAddress],
+        });
+        const providerIds = await readContract({
+          address: CONTRACTS.TASK_ESCROW,
+          abi: TASK_ESCROW_ABI,
+          functionName: "getProviderTasks",
+          args: [walletAddress],
+        });
+        const requested = await loadTaskRecords(requesterIds);
+        const assigned = await loadTaskRecords(providerIds);
 
         if (!isCurrent) return;
         setAgent(profile);

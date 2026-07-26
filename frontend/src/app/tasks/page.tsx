@@ -31,8 +31,13 @@ interface TaskRecord {
   deadline: bigint;
 }
 
-/** How many task records to pull per request. Reads are one RPC call each. */
-const PAGE_SIZE = 24;
+/**
+ * Records per page. Each is one `eth_call`, and the shared limiter paces reads
+ * to the public RPC's measured ~3-per-second quota — so this is really a latency
+ * budget: 9 records fills in roughly 3s, where 24 took 24s. Raise it when
+ * NEXT_PUBLIC_ARC_RPC_URL points at a dedicated endpoint.
+ */
+const PAGE_SIZE = 9;
 
 type FilterKey = "open" | "active" | "settled" | "all";
 

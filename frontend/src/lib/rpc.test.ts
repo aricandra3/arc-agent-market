@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import {
+  createRateLimiter,
   describeReadError,
   isRateLimitError,
   mapLimit,
@@ -54,7 +55,7 @@ describe("withRpcRetry", () => {
     expect(task).toHaveBeenCalledTimes(3);
   });
 
-  it("backs off exponentially between attempts", async () => {
+  it("backs off exponentially, with jitter inside the expected band", async () => {
     const delays: number[] = [];
     const task = vi.fn().mockRejectedValue(rateLimited());
 
@@ -68,7 +69,15 @@ describe("withRpcRetry", () => {
       }),
     ).rejects.toThrow();
 
-    expect(delays).toEqual([100, 200, 400]);
+    // Jitter adds up to 25% on top of each doubling, so exact equality would be
+    // asserting the randomness rather than the backoff curve.
+    expect(delays).toHaveLength(3);
+    for (const [index, base] of [100, 200, 400].entries()) {
+      expect(delays[index]).toBeGreaterThanOrEqual(base);
+      expect(delays[index]).toBeLessThan(base * 1.25);
+    }
+    expect(delays[1]).toBeGreaterThan(delays[0]);
+    expect(delays[2]).toBeGreaterThan(delays[1]);
   });
 
   it("gives up after the attempt budget and rethrows", async () => {
@@ -87,6 +96,74 @@ describe("withRpcRetry", () => {
       "execution reverted",
     );
     expect(task).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("createRateLimiter", () => {
+  /** Deterministic clock so window arithmetic is asserted, not timed. */
+  function harness(capacity: number, windowMs: number) {
+    let clock = 1_000;
+    const limiter = createRateLimiter({
+      capacity,
+      windowMs,
+      now: () => clock,
+      sleep: async (ms) => {
+        clock += ms;
+      },
+    });
+    return { limiter, at: () => clock, advance: (ms: number) => (clock += ms) };
+  }
+
+  it("admits a full burst up to capacity without waiting", async () => {
+    const { limiter, at } = harness(3, 1000);
+    const start = at();
+
+    await limiter.acquire();
+    await limiter.acquire();
+    await limiter.acquire();
+
+    expect(at()).toBe(start);
+  });
+
+  it("delays the call that would exceed capacity into the next window", async () => {
+    const { limiter, at } = harness(3, 1000);
+    const start = at();
+
+    for (let i = 0; i < 3; i++) await limiter.acquire();
+    await limiter.acquire();
+
+    expect(at()).toBe(start + 1000);
+  });
+
+  it("paces a long run to the configured rate", async () => {
+    const { limiter, at } = harness(3, 1000);
+    const start = at();
+
+    // 9 calls at 3 per window = 2 waits after the first window.
+    for (let i = 0; i < 9; i++) await limiter.acquire();
+
+    expect(at()).toBe(start + 2000);
+  });
+
+  it("refills after an idle gap", async () => {
+    const { limiter, at, advance } = harness(3, 1000);
+
+    for (let i = 0; i < 3; i++) await limiter.acquire();
+    advance(1500);
+    const before = at();
+    await limiter.acquire();
+
+    expect(at()).toBe(before);
+  });
+
+  it("serializes concurrent acquires so a burst cannot overshoot", async () => {
+    const { limiter, at } = harness(2, 1000);
+    const start = at();
+
+    await Promise.all(Array.from({ length: 4 }, () => limiter.acquire()));
+
+    // Two windows' worth of capacity for four callers.
+    expect(at()).toBe(start + 1000);
   });
 });
 
