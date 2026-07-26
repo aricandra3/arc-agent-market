@@ -32,7 +32,7 @@ export function AppFooter() {
       <div className="app-container relative grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
         <div className="max-w-xs">
           <div className="flex items-center gap-2">
-            <ExAgoraMark />
+            <ExAgoraMark variant="full" className="size-9" />
             <span className="font-display text-lg text-foreground">
               {BRAND.name}
             </span>

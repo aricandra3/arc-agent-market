@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <title>ExAgora</title>
+  <!-- A tile, not a bare glyph: a favicon has no parent to inherit a colour
+       from, and ink-on-transparent disappears against a dark tab strip. -->
+  <rect width="64" height="64" rx="13" fill="#ffffff"/>
+  <g fill="#0a0b0d">
+    <path d="M9 26 L32 11 L55 26" fill="none" stroke="#0a0b0d" stroke-width="6" stroke-linejoin="miter"/>
+    <rect x="12" y="26" width="40" height="4.5"/>
+    <path fill-rule="evenodd" d="M14 30.5 H50 V45 H14 Z M19 30.5 H24.5 V45 H19 Z M29.25 30.5 H34.75 V45 H29.25 Z M39.5 30.5 H45 V45 H39.5 Z"/>
+    <rect x="10" y="45" width="44" height="4.5"/>
+  </g>
+  <circle cx="32" cy="55" r="5" fill="#f2a81d" stroke="#0a0b0d" stroke-width="2.5"/>
+</svg>

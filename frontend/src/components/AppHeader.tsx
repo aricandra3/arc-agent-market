@@ -266,7 +266,7 @@ export default function AppHeader() {
           name: BRAND.name,
           description: BRAND.descriptor,
           url: window.location.origin,
-          icons: [`${window.location.origin}/favicon.ico`],
+          icons: [`${window.location.origin}/icon.svg`],
         },
       });
       await wcProvider.connect();
