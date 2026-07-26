@@ -21,7 +21,8 @@ async function main() {
   const usdcAddr = await usdc.getAddress();
   console.log("MockUSDC:", usdcAddr);
 
-  const { registry, escrow, addresses } = await deployAll(usdcAddr);
+  const { registry, escrow, verifierRegistry, workReceipt, addresses } =
+    await deployAll(usdcAddr);
 
   // Fund the demo accounts.
   for (const account of [deployer, requester, provider]) {
@@ -89,6 +90,69 @@ async function main() {
         deadline,
       )
   ).wait();
+
+  // 3. A settled task, so the review flow has something to rate.
+  const settledBudget = hre.ethers.parseUnits("60", 6);
+  await (await usdc.connect(requester).approve(escrowAddr, settledBudget)).wait();
+  await (
+    await escrow
+      .connect(requester)
+      .createTask(
+        provider.address,
+        settledBudget,
+        "Ship the rate-limit fix and document the measured quota.",
+        ["software"],
+        deadline,
+      )
+  ).wait();
+  const settledId = await escrow.getTaskCount();
+  await (
+    await escrow
+      .connect(provider)
+      .submitDeliverable(settledId, hre.ethers.id("settled"), "ipfs://settled")
+  ).wait();
+  await (await escrow.connect(requester).approveTask(settledId)).wait();
+
+  // 4. A submitted task with a pending receipt, so the verifier queue is not empty.
+  const reviewBudget = hre.ethers.parseUnits("80", 6);
+  await (await usdc.connect(requester).approve(escrowAddr, reviewBudget)).wait();
+  await (
+    await escrow
+      .connect(requester)
+      .createTask(
+        provider.address,
+        reviewBudget,
+        "Audit the verifier registry permissions.",
+        ["security"],
+        deadline,
+      )
+  ).wait();
+  const pendingId = await escrow.getTaskCount();
+  await (
+    await escrow
+      .connect(provider)
+      .submitDeliverable(pendingId, hre.ethers.id("pending"), "ipfs://pending")
+  ).wait();
+  await (
+    await workReceipt
+      .connect(provider)
+      .createReceipt(pendingId, "ipfs://proof-pending", hre.ethers.id("proof-pending"))
+  ).wait();
+
+  // 5. Register the deployer as an active verifier so the queue is actionable.
+  await (
+    await verifierRegistry.registerVerifier(
+      deployer.address,
+      "Local QA Service",
+      1,
+      ["software", "security"],
+      "ipfs://verifier-local",
+    )
+  ).wait();
+
+  console.log(`\nSettled task (reviewable): ${settledId}`);
+  console.log(`Submitted task with pending receipt: ${pendingId}`);
+  console.log(`Verifier: ${deployer.address}`);
 
   const outDir = path.join(__dirname, "..", "deployments");
   fs.mkdirSync(outDir, { recursive: true });

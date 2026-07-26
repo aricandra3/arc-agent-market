@@ -63,6 +63,7 @@ const WALLETCONNECT_PROJECT_ID =
 const navItems = [
   { href: "/agents", label: "Agents" },
   { href: "/tasks", label: "Tasks" },
+  { href: "/verify", label: "Verify" },
   { href: "/register", label: "Register" },
   { href: "/tasks/create", label: "Create task" },
   { href: "/dashboard", label: "Dashboard" },

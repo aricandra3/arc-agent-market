@@ -28,6 +28,8 @@ import {
   TransactionState,
   type TransactionPhase,
 } from "@/components/TransactionState";
+import { CreateReceiptForm } from "@/components/CreateReceiptForm";
+import { ReviewPanel } from "@/components/ReviewPanel";
 import { WorkReceiptPanel } from "@/components/WorkReceiptPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -395,6 +397,24 @@ export default function TaskDetailPage() {
 
       <Reveal className="mt-8 block" delay={120}>
         <WorkReceiptPanel receipt={receipt} taskStatus={task.status} />
+      </Reveal>
+
+      {/* Submitted (3) with no receipt yet is the only window createReceipt
+          accepts, and it is provider-only. */}
+      {isProvider && task.status === 3 && !receipt && (
+        <Reveal className="mt-8 block" delay={140}>
+          <CreateReceiptForm taskId={taskId} onCreated={refreshTask} />
+        </Reveal>
+      )}
+
+      {/* Paid (5) is the only status Reputation accepts a review for. */}
+      <Reveal className="mt-8 block" delay={160}>
+        <ReviewPanel
+          taskId={taskId}
+          isParty={Boolean(isRequester || isProvider)}
+          taskPaid={task.status === 5}
+          counterpartyLabel={isRequester ? "the provider's" : "the requester's"}
+        />
       </Reveal>
 
       {isConnected && (
