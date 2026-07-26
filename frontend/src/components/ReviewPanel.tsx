@@ -12,7 +12,12 @@ import {
 } from "@/components/TransactionState";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { CONTRACTS, REPUTATION_ABI, readContract } from "@/lib/contracts";
+import {
+  CONTRACTS,
+  REPUTATION_ABI,
+  arcTestnet,
+  readContract,
+} from "@/lib/contracts";
 import { validateReview } from "@/lib/review";
 import { describeTxError, sendTransaction, waitForTx } from "@/lib/tx";
 import { useWalletStore } from "@/lib/store";
@@ -189,7 +194,7 @@ export function ReviewPanel({
         submittedLabel="Review submitted"
       >
         <MessageSquarePlus aria-hidden="true" />
-        {wrongNetwork ? "Switch to Arc Testnet first" : "Submit review"}
+        {wrongNetwork ? `Switch to ${arcTestnet.name} first` : "Submit review"}
       </TransactionButton>
 
       <TransactionState

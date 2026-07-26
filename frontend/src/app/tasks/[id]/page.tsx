@@ -42,6 +42,7 @@ import {
   CONTRACTS,
   TASK_ESCROW_ABI,
   ZERO_ADDRESS,
+  arcTestnet,
   explorerAddressUrl,
   formatDate,
   formatUSDC,
@@ -571,7 +572,7 @@ export default function TaskDetailPage() {
                 >
                   <Upload aria-hidden="true" />
                   {wrongNetwork
-                    ? "Switch to Arc Testnet first"
+                    ? `Switch to ${arcTestnet.name} first`
                     : "Submit deliverable"}
                 </TransactionButton>
               </form>
@@ -587,7 +588,7 @@ export default function TaskDetailPage() {
       )}
 
       <p className="mt-8 font-mono text-[10px] text-muted-foreground">
-        Created {formatDate(task.createdAt)} / Arc Testnet
+        Created {formatDate(task.createdAt)} / {arcTestnet.name}
       </p>
     </div>
   );

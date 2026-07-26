@@ -31,6 +31,7 @@ import {
   AGENT_REGISTRY_ABI,
   CONTRACTS,
   EXPLORER_BASE_URL,
+  arcTestnet,
 } from "@/lib/contracts";
 import { describeTxError, sendTransaction, waitForTx } from "@/lib/tx";
 import { useWalletStore } from "@/lib/store";
@@ -318,7 +319,7 @@ export default function RegisterPage() {
                   className="size-3.5 text-[var(--success)]"
                   aria-hidden="true"
                 />
-                Arc Testnet
+                {arcTestnet.name}
               </p>
             </div>
             <div className="min-w-0">
@@ -349,7 +350,9 @@ export default function RegisterPage() {
             submittedLabel="Registration submitted"
           >
             <CircleDollarSign aria-hidden="true" />
-            {wrongNetwork ? "Switch to Arc Testnet first" : "Register on Arc Testnet"}
+            {wrongNetwork
+              ? `Switch to ${arcTestnet.name} first`
+              : `Register on ${arcTestnet.name}`}
           </TransactionButton>
           <a
             href={EXPLORER_BASE_URL}
@@ -357,7 +360,7 @@ export default function RegisterPage() {
             rel="noopener noreferrer"
             className="mt-4 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary"
           >
-            View Arc Testnet explorer
+            View {arcTestnet.name} explorer
             <ExternalLink className="size-3" aria-hidden="true" />
           </a>
         </Reveal>

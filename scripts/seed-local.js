@@ -6,6 +6,16 @@
  *   npx hardhat run scripts/seed-local.js --network localhost
  *
  * Then copy the printed variables into frontend/.env.development.local.
+ *
+ * When you are done, undo it in this order:
+ *
+ *   rm frontend/.env.development.local
+ *   rm -rf frontend/.next          # NEXT_PUBLIC_* is inlined at compile time,
+ *                                  # so a stale build keeps serving localhost
+ *
+ * Then remove the local network from your wallet. `ensureArcChain` calls
+ * `wallet_addEthereumChain`, and the wallet *persists* whatever it is given, so
+ * the local chain stays in its network list until you delete it by hand.
  */
 const fs = require("fs");
 const path = require("path");

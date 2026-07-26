@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   ZERO_ADDRESS,
+  chainNameFor,
   formatUSDC,
   formatPercentBps,
   formatDate,
@@ -61,6 +62,27 @@ describe("isUserRejectedError", () => {
     expect(isUserRejectedError(new Error("network timeout"))).toBe(false);
     expect(isUserRejectedError("nope")).toBe(false);
     expect(isUserRejectedError(undefined)).toBe(false);
+  });
+});
+
+describe("chainNameFor", () => {
+  it("names the real Arc testnet", () => {
+    expect(chainNameFor(5042002)).toBe("Arc Testnet");
+  });
+
+  it("never lets a local chain claim the testnet's name", () => {
+    // wallet_addEthereumChain persists whatever name it is given, so a local
+    // chain announced as "Arc Testnet" would shadow the real saved network.
+    for (const chainId of [31337, 1337]) {
+      const name = chainNameFor(chainId);
+      expect(name).toContain(String(chainId));
+      expect(name).not.toBe("Arc Testnet");
+    }
+  });
+
+  it("labels an unknown chain by its id rather than guessing", () => {
+    expect(chainNameFor(8453)).toBe("Arc (chain 8453)");
+    expect(chainNameFor(1)).toBe("Arc (chain 1)");
   });
 });
 

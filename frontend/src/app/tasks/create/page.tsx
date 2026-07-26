@@ -29,7 +29,13 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { CONTRACTS, ERC20_ABI, TASK_ESCROW_ABI, ZERO_ADDRESS } from "@/lib/contracts";
+import {
+  CONTRACTS,
+  ERC20_ABI,
+  TASK_ESCROW_ABI,
+  ZERO_ADDRESS,
+  arcTestnet,
+} from "@/lib/contracts";
 import { describeTxError, sendTransaction, waitForTx } from "@/lib/tx";
 import { useWalletStore } from "@/lib/store";
 
@@ -389,7 +395,7 @@ function CreateTaskPage() {
             submittedLabel="Confirming on Arc"
           >
             <FilePlus2 aria-hidden="true" />
-            {wrongNetwork ? "Switch to Arc Testnet first" : buttonLabel}
+            {wrongNetwork ? `Switch to ${arcTestnet.name} first` : buttonLabel}
           </TransactionButton>
         </aside>
       </form>

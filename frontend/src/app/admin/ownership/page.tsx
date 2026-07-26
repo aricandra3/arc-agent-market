@@ -24,6 +24,7 @@ import {
   OWNABLE2STEP_ABI,
   OWNED_CONTRACTS,
   ZERO_ADDRESS,
+  arcTestnet,
   explorerAddressUrl,
   isConfiguredAddress,
   readContract,
@@ -199,7 +200,7 @@ export default function OwnershipAdminPage() {
           role="alert"
           className="mt-8 rounded-[var(--radius)] border border-[var(--warning)]/50 bg-[var(--warning)]/10 px-4 py-3 text-sm text-[var(--warning-fg)]"
         >
-          Wrong network. Switch to Arc Testnet before accepting ownership.
+          Wrong network. Switch to {arcTestnet.name} before accepting ownership.
         </p>
       )}
 

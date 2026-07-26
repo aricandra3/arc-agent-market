@@ -83,7 +83,7 @@ function toNumericChainId(raw: unknown): number {
 }
 
 /**
- * Best-effort switch to Arc Testnet. Adds the chain if the wallet doesn't
+ * Best-effort switch to the configured Arc chain. Adds it if the wallet doesn't
  * know it. Never throws — wallets that reject just stay on their network.
  */
 export async function ensureArcChain(provider: Eip1193Provider) {

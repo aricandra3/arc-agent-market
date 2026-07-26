@@ -29,6 +29,7 @@ import {
   OWNABLE2STEP_ABI,
   VERIFIER_REGISTRY_ABI,
   VERIFIER_TYPES,
+  arcTestnet,
   explorerAddressUrl,
   formatDate,
   hasConfiguredVerifierRegistry,
@@ -324,7 +325,7 @@ export default function VerifiersAdminPage() {
           role="alert"
           className="mt-8 rounded-[0.65rem] border border-[#d4ad6f]/50 bg-[#d4ad6f]/10 px-4 py-3 text-sm text-[#e7c992]"
         >
-          Wrong network. Switch to Arc Testnet to manage verifiers.
+          Wrong network. Switch to {arcTestnet.name} to manage verifiers.
         </p>
       )}
 

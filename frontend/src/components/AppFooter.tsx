@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { ExAgoraMark } from "@/components/ExAgoraMark";
 import { BRAND } from "@/lib/brand";
-import { EXPLORER_BASE_URL } from "@/lib/contracts";
+import {
+  EXPLORER_BASE_URL,
+  arcTestnet,
+} from "@/lib/contracts";
 
 const columns = [
   {
@@ -43,7 +46,7 @@ export function AppFooter() {
               <span className="relative inline-flex size-1.5 rounded-full bg-[var(--success)]" />
             </span>
             <span className="font-mono text-[10px] tracking-wide text-[var(--accent-cyan)]">
-              Arc Testnet
+              {arcTestnet.name}
             </span>
           </span>
         </div>

@@ -28,6 +28,7 @@ import {
   CONTRACTS,
   VERIFIER_REGISTRY_ABI,
   WORK_RECEIPT_ABI,
+  arcTestnet,
   formatDate,
   hasConfiguredVerifierRegistry,
   hasConfiguredWorkReceipt,
@@ -251,7 +252,7 @@ export default function VerifyPage() {
           role="alert"
           className="mt-4 rounded-[0.65rem] border border-[#d4ad6f]/50 bg-[#d4ad6f]/10 px-4 py-3 text-sm text-[#e7c992]"
         >
-          Wrong network. Switch to Arc Testnet to record a verification.
+          Wrong network. Switch to {arcTestnet.name} to record a verification.
         </p>
       )}
 

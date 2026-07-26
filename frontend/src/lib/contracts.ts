@@ -23,10 +23,25 @@ const EXPLORER_URL =
   process.env.NEXT_PUBLIC_ARC_EXPLORER_URL?.trim() || 'https://testnet.arcscan.app';
 const CHAIN_ID = Number(process.env.NEXT_PUBLIC_ARC_CHAIN_ID ?? 5042002);
 
-// Arc Testnet chain definition
+/**
+ * Human name for the configured chain.
+ *
+ * Derived from the chain id, never hardcoded: `ensureArcChain` passes this to
+ * `wallet_addEthereumChain`, which *persists* in the user's wallet. A local
+ * chain announced as "Arc Testnet" leaves a saved network of that name pointing
+ * at 127.0.0.1, which then shadows the real one long after the dev server is
+ * gone.
+ */
+export function chainNameFor(chainId: number): string {
+  if (chainId === 5042002) return 'Arc Testnet';
+  if (chainId === 31337 || chainId === 1337) return `Arc Local (${chainId})`;
+  return `Arc (chain ${chainId})`;
+}
+
+// Arc chain definition, driven by NEXT_PUBLIC_ARC_CHAIN_ID.
 export const arcTestnet = {
   id: CHAIN_ID,
-  name: 'Arc Testnet',
+  name: chainNameFor(CHAIN_ID),
   network: 'arc-testnet',
   nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 6 },
   rpcUrls: {

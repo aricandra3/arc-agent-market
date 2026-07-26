@@ -116,7 +116,7 @@ export default function AppHeader() {
 
   const handleSwitchNetwork = useCallback(async () => {
     if (!activeProvider) {
-      toast.message("Open your wallet and switch to Arc Testnet.");
+      toast.message(`Open your wallet and switch to ${arcTestnet.name}.`);
       return;
     }
     await ensureArcChain(activeProvider);
@@ -328,7 +328,7 @@ export default function AppHeader() {
                 <span className="relative inline-flex size-1.5 rounded-full bg-[var(--success)]" />
               </span>
               <span className="font-mono text-[10px] tracking-wide text-[var(--accent-cyan)]">
-                Arc Testnet
+                {arcTestnet.name}
               </span>
             </span>
 
@@ -410,7 +410,7 @@ export default function AppHeader() {
                       aria-hidden="true"
                     />
                     <span className="font-mono text-xs text-muted-foreground">
-                      Arc Testnet
+                      {arcTestnet.name}
                     </span>
                   </div>
                   {isConnected ? (
@@ -456,7 +456,7 @@ export default function AppHeader() {
           >
             <span className="flex items-center gap-2">
               <CircleAlert className="size-4 shrink-0" aria-hidden="true" />
-              Wrong network. Switch to Arc Testnet to transact.
+              Wrong network. Switch to {arcTestnet.name} to transact.
             </span>
             <Button
               size="xs"
@@ -464,7 +464,7 @@ export default function AppHeader() {
               className="border-[var(--warning)]/55 text-[var(--warning-fg)]"
               onClick={handleSwitchNetwork}
             >
-              Switch to Arc Testnet
+              Switch to {arcTestnet.name}
             </Button>
           </div>
         )}

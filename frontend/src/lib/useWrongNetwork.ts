@@ -4,7 +4,7 @@ import { arcTestnet } from "@/lib/contracts";
 import { useWalletStore } from "@/lib/store";
 
 /**
- * True when a wallet is connected but on a chain other than Arc Testnet.
+ * True when a wallet is connected but on a chain other than the configured one.
  * Use to block transaction submits that would otherwise fail.
  */
 export function useWrongNetwork(): boolean {

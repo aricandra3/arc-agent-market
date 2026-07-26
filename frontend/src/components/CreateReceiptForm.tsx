@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import {
   CONTRACTS,
   WORK_RECEIPT_ABI,
+  arcTestnet,
   hasConfiguredWorkReceipt,
 } from "@/lib/contracts";
 import { resolveDeliverableCommitment } from "@/lib/deliverable";
@@ -143,7 +144,7 @@ export function CreateReceiptForm({
         submittedLabel="Receipt submitted"
       >
         <FileCheck2 aria-hidden="true" />
-        {wrongNetwork ? "Switch to Arc Testnet first" : "Open receipt"}
+        {wrongNetwork ? `Switch to ${arcTestnet.name} first` : "Open receipt"}
       </TransactionButton>
 
       <TransactionState
