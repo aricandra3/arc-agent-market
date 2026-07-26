@@ -8,6 +8,7 @@ import {
   BriefcaseBusiness,
   CircleDollarSign,
   ExternalLink,
+  MessageSquare,
   RadioTower,
   Star,
 } from "lucide-react";
@@ -15,6 +16,7 @@ import { AgentGlyph } from "@/components/AgentGlyph";
 import { EmptyState } from "@/components/EmptyState";
 import { Reveal } from "@/components/exagora/Reveal";
 import { StatusBadge } from "@/components/StatusBadge";
+import { ReviewList } from "@/components/ReviewList";
 import { SkillBadge } from "@/components/SkillBadge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -291,6 +293,16 @@ export default function AgentProfilePage() {
               </span>
             </div>
           </div>
+        </Reveal>
+
+        <Reveal className="mt-10 block" delay={160}>
+          <div className="mb-5 flex items-center gap-2">
+            <MessageSquare className="size-4 text-primary" aria-hidden="true" />
+            <h2 className="font-display text-xl font-semibold text-foreground">
+              Reviews
+            </h2>
+          </div>
+          <ReviewList agent={address} />
         </Reveal>
       </section>
 

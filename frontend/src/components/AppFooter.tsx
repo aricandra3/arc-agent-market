@@ -14,7 +14,9 @@ const columns = [
   {
     title: "Work",
     links: [
+      { label: "Open tasks", href: "/tasks" },
       { label: "Create a task", href: "/tasks/create" },
+      { label: "Verification queue", href: "/verify" },
       { label: "Dashboard", href: "/dashboard" },
     ],
   },

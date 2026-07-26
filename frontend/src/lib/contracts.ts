@@ -154,10 +154,75 @@ export const REPUTATION_ABI = [
   { inputs: [{ name: 'taskId', type: 'uint256' }, { name: 'rating', type: 'uint8' }, { name: 'comment', type: 'string' }], name: 'submitReview', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [{ name: 'agent', type: 'address' }], name: 'getReputation', outputs: [{ name: 'averageRating', type: 'uint256' }, { name: 'totalReviews', type: 'uint256' }, { name: 'completedTasks', type: 'uint256' }, { name: 'disputedTasks', type: 'uint256' }, { name: 'totalEarnings', type: 'uint256' }, { name: 'avgResponseTime', type: 'uint256' }, { name: 'completionRate', type: 'uint256' }], stateMutability: 'view', type: 'function' },
   { inputs: [{ name: 'agent', type: 'address' }], name: 'getTrustScore', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
+  { inputs: [{ name: 'taskId', type: 'uint256' }, { name: 'reviewer', type: 'address' }], name: 'hasReviewForTask', outputs: [{ name: '', type: 'bool' }], stateMutability: 'view', type: 'function' },
+  { inputs: [{ name: 'agent', type: 'address' }], name: 'getReviewCount', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
   { inputs: [{ name: 'agent', type: 'address' }, { name: 'offset', type: 'uint256' }, { name: 'limit', type: 'uint256' }], name: 'getReviews', outputs: [{ name: 'reviewIds', type: 'uint256[]' }, { name: 'reviewers', type: 'address[]' }, { name: 'ratings', type: 'uint8[]' }, { name: 'comments', type: 'string[]' }, { name: 'taskIds', type: 'uint256[]' }, { name: 'createdAts', type: 'uint256[]' }], stateMutability: 'view', type: 'function' },
 ] as const;
 
 export const WORK_RECEIPT_ABI = [
+  {
+    inputs: [
+      { name: 'taskId', type: 'uint256' },
+      { name: 'proofURI', type: 'string' },
+      { name: 'proofHash', type: 'bytes32' },
+    ],
+    name: 'createReceipt',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { name: 'receiptId', type: 'uint256' },
+      { name: 'score', type: 'uint16' },
+      { name: 'proofURI', type: 'string' },
+      { name: 'proofHash', type: 'bytes32' },
+    ],
+    name: 'passReceipt',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { name: 'receiptId', type: 'uint256' },
+      { name: 'score', type: 'uint16' },
+      { name: 'proofURI', type: 'string' },
+      { name: 'proofHash', type: 'bytes32' },
+    ],
+    name: 'failReceipt',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [{ name: 'receiptId', type: 'uint256' }],
+    name: 'getReceipt',
+    outputs: [{
+      name: '',
+      type: 'tuple',
+      components: [
+        { name: 'id', type: 'uint256' },
+        { name: 'taskId', type: 'uint256' },
+        { name: 'requester', type: 'address' },
+        { name: 'provider', type: 'address' },
+        { name: 'verifier', type: 'address' },
+        { name: 'deliverableURI', type: 'string' },
+        { name: 'proofURI', type: 'string' },
+        { name: 'proofHash', type: 'bytes32' },
+        { name: 'score', type: 'uint16' },
+        { name: 'status', type: 'uint8' },
+        { name: 'createdAt', type: 'uint256' },
+        { name: 'verifiedAt', type: 'uint256' },
+      ],
+    }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  // No global index of pending receipts exists, so the verifier queue walks
+  // ids down from this counter and filters on status.
+  { inputs: [], name: 'nextReceiptId', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
+  { inputs: [], name: 'MAX_SCORE', outputs: [{ name: '', type: 'uint16' }], stateMutability: 'view', type: 'function' },
   {
     inputs: [{ name: 'taskId', type: 'uint256' }],
     name: 'getReceiptByTask',
@@ -224,6 +289,50 @@ export const OWNED_CONTRACTS = [
   { label: 'Reputation', address: CONTRACTS.REPUTATION },
   { label: 'VerifierRegistry', address: CONTRACTS.VERIFIER_REGISTRY },
 ] as const;
+
+/** VerifierRegistry. Registration is owner-only; verification checks isActiveVerifier. */
+export const VERIFIER_REGISTRY_ABI = [
+  {
+    inputs: [
+      { name: 'wallet', type: 'address' },
+      { name: 'name', type: 'string' },
+      { name: 'verifierType', type: 'uint8' },
+      { name: 'categories', type: 'string[]' },
+      { name: 'metadataURI', type: 'string' },
+    ],
+    name: 'registerVerifier',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  { inputs: [{ name: 'wallet', type: 'address' }], name: 'deactivateVerifier', outputs: [], stateMutability: 'nonpayable', type: 'function' },
+  { inputs: [{ name: 'wallet', type: 'address' }], name: 'reactivateVerifier', outputs: [], stateMutability: 'nonpayable', type: 'function' },
+  { inputs: [{ name: 'wallet', type: 'address' }], name: 'isActiveVerifier', outputs: [{ name: '', type: 'bool' }], stateMutability: 'view', type: 'function' },
+  {
+    inputs: [{ name: 'verifierAddress', type: 'address' }],
+    name: 'getVerifier',
+    outputs: [
+      { name: 'wallet', type: 'address' },
+      { name: 'name', type: 'string' },
+      { name: 'verifierType', type: 'uint8' },
+      { name: 'categories', type: 'string[]' },
+      { name: 'metadataURI', type: 'string' },
+      { name: 'isActive', type: 'bool' },
+      { name: 'registeredAt', type: 'uint256' },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  { inputs: [], name: 'getVerifierCount', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
+  { inputs: [{ name: 'index', type: 'uint256' }], name: 'getVerifierByIndex', outputs: [{ name: '', type: 'address' }], stateMutability: 'view', type: 'function' },
+] as const;
+
+/** VerifierRegistry.VerifierType, by enum ordinal. */
+export const VERIFIER_TYPES = ['Human', 'Service', 'Automated', 'Committee'] as const;
+
+export function hasConfiguredVerifierRegistry(): boolean {
+  return isConfiguredAddress(CONTRACTS.VERIFIER_REGISTRY);
+}
 
 export const ERC20_ABI = [
   { inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }], name: 'approve', outputs: [{ name: '', type: 'bool' }], stateMutability: 'nonpayable', type: 'function' },
