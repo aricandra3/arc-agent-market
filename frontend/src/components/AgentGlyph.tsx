@@ -38,7 +38,7 @@ export function AgentGlyph({
   name,
   className,
   labelClassName,
-  rounded = "rounded-[0.85rem]",
+  rounded = "rounded-[var(--radius-surface)]",
 }: AgentGlyphProps) {
   const h = hashString(seed || name);
   const hue1 = 165 + (h % 90); // 165..255: teal → blue → indigo (analogous)
@@ -51,7 +51,7 @@ export function AgentGlyph({
     <span
       aria-hidden="true"
       className={cn(
-        "relative grid shrink-0 place-items-center overflow-hidden border border-white/12 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16),2px_2px_0_#040c18]",
+        "relative grid shrink-0 place-items-center overflow-hidden border border-white/12 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16),2px_2px_0_var(--ink)]",
         rounded,
         className,
       )}

@@ -25,14 +25,14 @@ type StatusBadgeProps =
   | { kind: "receipt"; status: ReceiptStatus };
 
 const taskStyles = [
-  "border-[#7fa7c8]/50 bg-[#24496b]/30 text-[#c7dbf4]",
-  "border-[#d4ad6f]/55 bg-[#d4ad6f]/12 text-[#e7c992]",
-  "border-[#7fa7c8]/50 bg-[#24496b]/30 text-[#c7dbf4]",
-  "border-[#d4ad6f]/55 bg-[#d4ad6f]/12 text-[#e7c992]",
-  "border-[#6eb8ad]/55 bg-[#6eb8ad]/12 text-[#9cd4cc]",
-  "border-[#6eb8ad]/55 bg-[#6eb8ad]/12 text-[#9cd4cc]",
-  "border-[#d36c72]/55 bg-[#d36c72]/12 text-[#efa2a7]",
-  "border-[#6eb8ad]/55 bg-[#6eb8ad]/12 text-[#9cd4cc]",
+  "border-[var(--muted-foreground)]/50 bg-[var(--steel)]/30 text-[var(--foreground)]",
+  "border-[var(--warning)]/55 bg-[var(--warning)]/12 text-[var(--warning-fg)]",
+  "border-[var(--muted-foreground)]/50 bg-[var(--steel)]/30 text-[var(--foreground)]",
+  "border-[var(--warning)]/55 bg-[var(--warning)]/12 text-[var(--warning-fg)]",
+  "border-[var(--success)]/55 bg-[var(--success)]/12 text-[var(--accent-cyan)]",
+  "border-[var(--success)]/55 bg-[var(--success)]/12 text-[var(--accent-cyan)]",
+  "border-[var(--destructive)]/55 bg-[var(--destructive)]/12 text-[var(--destructive-fg)]",
+  "border-[var(--success)]/55 bg-[var(--success)]/12 text-[var(--accent-cyan)]",
   "border-border bg-secondary text-muted-foreground",
   "border-border bg-secondary text-muted-foreground",
 ];
@@ -46,7 +46,7 @@ export function StatusBadge(props: StatusBadgeProps) {
         variant="outline"
         className={cn(
           active
-            ? "border-[#6eb8ad]/55 bg-[#6eb8ad]/12 text-[#9cd4cc]"
+            ? "border-[var(--success)]/55 bg-[var(--success)]/12 text-[var(--accent-cyan)]"
             : "border-border bg-secondary text-muted-foreground",
         )}
       >
@@ -67,25 +67,25 @@ export function StatusBadge(props: StatusBadgeProps) {
         label: "Pending",
         icon: Clock3,
         className:
-          "border-[#d4ad6f]/55 bg-[#d4ad6f]/12 text-[#e7c992]",
+          "border-[var(--warning)]/55 bg-[var(--warning)]/12 text-[var(--warning-fg)]",
       },
       passed: {
         label: "Passed",
         icon: CircleCheck,
         className:
-          "border-[#6eb8ad]/55 bg-[#6eb8ad]/12 text-[#9cd4cc]",
+          "border-[var(--success)]/55 bg-[var(--success)]/12 text-[var(--accent-cyan)]",
       },
       failed: {
         label: "Failed",
         icon: CircleX,
         className:
-          "border-[#d36c72]/55 bg-[#d36c72]/12 text-[#efa2a7]",
+          "border-[var(--destructive)]/55 bg-[var(--destructive)]/12 text-[var(--destructive-fg)]",
       },
       disputed: {
         label: "Disputed",
         icon: ShieldAlert,
         className:
-          "border-[#d36c72]/55 bg-[#d36c72]/12 text-[#efa2a7]",
+          "border-[var(--destructive)]/55 bg-[var(--destructive)]/12 text-[var(--destructive-fg)]",
       },
     } satisfies Record<
       ReceiptStatus,

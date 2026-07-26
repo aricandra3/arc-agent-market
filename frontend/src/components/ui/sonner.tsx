@@ -27,7 +27,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
       toastOptions={{
         classNames: {
           toast:
-            "!rounded-[0.85rem] !border-[1.5px] !backdrop-blur-md !shadow-[3px_3px_0_#040c18]",
+            "!rounded-[var(--radius-surface)] !border !backdrop-blur-md !",
           title: "font-semibold tracking-tight",
           description: "!text-muted-foreground",
         },

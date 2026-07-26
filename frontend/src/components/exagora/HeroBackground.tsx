@@ -5,20 +5,45 @@ type HeroBackgroundProps = {
 };
 
 /**
- * Quiet hero backdrop: a single deep vertical gradient with a soft vignette
- * into the page. No glows, beams, or stripes — the headline carries the page.
+ * Chrome arc: dua torus iridescent murni CSS (conic-gradient + radial mask),
+ * dimiringkan di bawah perspective. Nol byte aset, tajam di resolusi apa pun.
+ *
+ * Flare-nya memakai teal ExAgora, bukan tembaga — inilah satu-satunya sumber
+ * warna di hero, sehingga sisa halaman bisa monokrom total.
  */
 export function HeroBackground({ className }: HeroBackgroundProps) {
   return (
     <div
       aria-hidden="true"
-      className={cn(
-        "pointer-events-none absolute inset-0 overflow-hidden",
-        className,
-      )}
+      className={cn("arc-stage bg-black", className)}
     >
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,#0c1d33_0%,#071426_70%)]" />
-      <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[#071426] to-transparent" />
+      <div
+        className="arc"
+        style={{
+          width: "min(78vw, 1180px)",
+          top: "-24vh",
+          right: "-16vw",
+          transform: "rotateX(72deg)",
+        }}
+      >
+        <i style={{ ["--dur" as string]: "52s" }} />
+      </div>
+      <div
+        className="arc opacity-85"
+        style={{
+          width: "min(58vw, 820px)",
+          bottom: "-30vh",
+          left: "-14vw",
+          transform: "rotateX(64deg) rotateY(18deg)",
+        }}
+      >
+        <i
+          style={{
+            ["--dur" as string]: "76s",
+            animationDirection: "reverse",
+          }}
+        />
+      </div>
     </div>
   );
 }

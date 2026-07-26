@@ -20,25 +20,23 @@ export function EmptyState({
   headingLevel = "h2",
 }: EmptyStateProps) {
   const Heading = headingLevel;
-  const iconColor = tone === "error" ? "text-[#efa2a7]" : "text-[#9fc1df]";
+  const iconColor = tone === "error" ? "text-[var(--destructive-fg)]" : "text-[var(--muted-foreground)]";
 
   return (
     <div
       className={cn(
-        "brutal-surface flex min-h-64 flex-col items-start justify-center p-7 sm:p-10",
-        tone === "error" && "border-[#d36c72]/70",
+        "flex min-h-72 flex-col items-start justify-center rounded-[var(--radius-surface)] border border-border px-8 py-12 sm:px-12",
+        tone === "error" && "border-[var(--destructive)]/50",
       )}
     >
-      <div className="flex items-center gap-3">
-        <Icon className={cn("size-6 shrink-0", iconColor)} aria-hidden="true" />
-        <Heading className="font-display text-2xl text-foreground">
-          {title}
-        </Heading>
-      </div>
-      <p className="mt-3 max-w-prose text-sm leading-6 text-muted-foreground">
+      <Icon className={cn("size-5 shrink-0", iconColor)} aria-hidden="true" />
+      <Heading className="mt-5 text-2xl font-light tracking-[-0.03em] text-foreground">
+        {title}
+      </Heading>
+      <p className="mt-3 max-w-prose text-sm leading-relaxed text-muted-foreground">
         {description}
       </p>
-      {action && <div className="mt-6">{action}</div>}
+      {action && <div className="mt-8">{action}</div>}
     </div>
   );
 }

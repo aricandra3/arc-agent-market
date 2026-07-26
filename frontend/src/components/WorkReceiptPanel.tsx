@@ -29,11 +29,11 @@ export function WorkReceiptPanel({
   const status = receiptStates[receipt?.status ?? 0] ?? "none";
 
   return (
-    <section className="brutal-surface p-5 sm:p-6">
+    <section className="panel p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2.5">
-            <span className="grid size-8 shrink-0 place-items-center rounded-[0.55rem] border-[1.5px] border-[#04101f] bg-[var(--page-accent,var(--accent-azure))] text-[#071426] shadow-[2px_2px_0_#040c18]">
+            <span className="grid size-8 shrink-0 place-items-center rounded-[var(--radius)] border border-[var(--ink)] bg-[var(--page-accent,var(--accent-azure))] text-[var(--ink)]">
               <FileCheck2 className="size-4" aria-hidden="true" />
             </span>
             <span className="font-display text-lg text-foreground">

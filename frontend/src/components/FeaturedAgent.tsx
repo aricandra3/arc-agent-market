@@ -43,39 +43,39 @@ export default function FeaturedAgent({
   const verifiedCount = Number(verificationStats?.totalReceipts ?? BigInt(0));
 
   return (
-    <div className="group flex h-full flex-col overflow-hidden rounded-[0.85rem] border-[1.5px] border-[#04101f] bg-[#0a1726] shadow-[5px_5px_0_#040c18] transition-transform duration-200 hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[8px_8px_0_#040c18]">
+    <div className="group flex h-full flex-col overflow-hidden rounded-[var(--radius-surface)] border border-[var(--ink)] bg-[var(--surface-deep)] transition-transform duration-200 hover:-translate-x-0.5 hover:-translate-y-0.5">
       {/* calm header band */}
-      <div className="flex items-start justify-between gap-3 border-b border-border/60 bg-[#102236] px-6 py-5">
+      <div className="flex items-start justify-between gap-3 border-b border-border/60 bg-[var(--surface-strong)] px-6 py-5">
         <div className="min-w-0">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-[#d6b079]/40 bg-[#d6b079]/10 px-2.5 py-0.5 font-mono text-[10px] font-bold tracking-[0.16em] text-[#d6b079] uppercase">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--accent-gold)]/40 bg-[var(--accent-gold)]/10 px-2.5 py-0.5 font-mono text-[10px] font-bold tracking-[0.16em] text-[var(--accent-gold)] uppercase">
             <Star className="size-3 fill-current" aria-hidden="true" />
             Top specialist
           </span>
-          <h3 className="font-display mt-2 truncate text-2xl text-foreground">
+          <h3 className="mt-2 truncate text-2xl font-light tracking-[-0.03em] text-foreground">
             {name}
           </h3>
         </div>
-        <span className="grid size-11 shrink-0 place-items-center rounded-[0.6rem] border border-border/70 bg-[#0a1726] text-[#9fc1df]">
+        <span className="grid size-11 shrink-0 place-items-center rounded-[var(--radius)] border border-border/70 bg-[var(--surface-deep)] text-[var(--muted-foreground)]">
           <Boxes className="size-5" aria-hidden="true" />
         </span>
       </div>
 
       {/* body */}
       <div className="flex flex-1 flex-col px-6 py-5">
-        <div className="rounded-[0.8rem] border border-border/50 bg-[#071426]/60 p-4 font-mono text-xs leading-6 text-[#9fc1df]">
+        <div className="rounded-[var(--radius-surface)] border border-border/50 bg-[var(--ink)]/60 p-4 font-mono text-xs leading-6 text-[var(--muted-foreground)]">
           <p>
-            <span className="text-[#82a0c4]">agent:</span> verified specialist
+            <span className="text-[var(--muted-foreground)]">agent:</span> verified specialist
           </p>
           <p>
-            <span className="text-[#82a0c4]">wallet:</span>{" "}
+            <span className="text-[var(--muted-foreground)]">wallet:</span>{" "}
             {shortAddress(address, 10, 6)}
           </p>
           <p className="truncate">
-            <span className="text-[#82a0c4]">skills:</span>{" "}
+            <span className="text-[var(--muted-foreground)]">skills:</span>{" "}
             {skills.slice(0, 4).join(", ") || "—"}
           </p>
           <p>
-            <span className="text-[#82a0c4]">status:</span>{" "}
+            <span className="text-[var(--muted-foreground)]">status:</span>{" "}
             {isActive ? "active" : "inactive"} · {Number(completedTasks)} tasks
           </p>
         </div>
@@ -86,13 +86,13 @@ export default function FeaturedAgent({
 
         {/* two solid stat chips (PRICE / UNLOCKS style) */}
         <div className="mt-5 grid grid-cols-2 gap-3">
-          <div className="rounded-[0.8rem] border-[1.5px] border-[#04101f] bg-[var(--accent-gold)] px-4 py-3 text-[#071426] shadow-[3px_3px_0_#040c18]">
+          <div className="rounded-[var(--radius-surface)] border border-[var(--ink)] bg-[var(--accent-gold)] px-4 py-3 text-[var(--ink)]">
             <p className="font-mono text-[10px] font-bold tracking-[0.14em] uppercase opacity-80">
               Rate
             </p>
             <p className="font-display text-xl">{formatUSDC(ratePerTask)}</p>
           </div>
-          <div className="rounded-[0.8rem] border-[1.5px] border-[#04101f] bg-[var(--accent-azure)] px-4 py-3 text-[#071426] shadow-[3px_3px_0_#040c18]">
+          <div className="rounded-[var(--radius-surface)] border border-[var(--ink)] bg-[var(--accent-azure)] px-4 py-3 text-[var(--ink)]">
             <p className="flex items-center gap-1 font-mono text-[10px] font-bold tracking-[0.14em] uppercase opacity-80">
               <BadgeCheck className="size-3" aria-hidden="true" />
               Verified
@@ -105,7 +105,7 @@ export default function FeaturedAgent({
 
         <div className="mt-5 flex items-center justify-between gap-4">
           <span className="flex items-center gap-1.5 text-sm text-foreground">
-            <Star className="size-4 text-[#d4ad6f]" aria-hidden="true" />
+            <Star className="size-4 text-[var(--warning)]" aria-hidden="true" />
             {ratingCount > 0 ? rating.toFixed(1) : "—"}
             <span className="text-muted-foreground">
               ({Number(ratingCount)})

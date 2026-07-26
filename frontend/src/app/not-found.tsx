@@ -6,7 +6,6 @@ export default function NotFound() {
   return (
     <div
       className="app-container flex min-h-[70vh] flex-col items-center justify-center py-20 text-center"
-      style={{ ["--page-accent" as string]: "var(--accent-cyan)" }}
     >
       <span
         className="sticker-chip"

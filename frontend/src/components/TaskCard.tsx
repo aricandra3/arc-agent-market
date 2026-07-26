@@ -37,12 +37,12 @@ export default function TaskCard({
     >
       <Card
         data-market-card
-        className="h-full min-h-64 gap-0 border-border/70 bg-card py-0 shadow-[3px_3px_0_#040c18] transition-[transform,border-color] duration-150 ease-out group-hover:-translate-y-0.5 group-hover:border-border"
+        className="h-full min-h-64 gap-0 border-border/70 bg-card py-0 transition-[transform,border-color] duration-150 ease-out group-hover:-translate-y-0.5 group-hover:border-border"
       >
         <CardContent className="relative z-[1] flex h-full flex-col px-5 py-5">
           <div className="flex min-h-10 items-start justify-between gap-3">
             <div>
-              <p className="font-mono text-[10px] uppercase text-[#8fb6ec]">
+              <p className="font-mono text-[10px] uppercase text-[var(--accent-azure)]">
                 Task record
               </p>
               <h3 className="mt-1 font-display text-lg font-semibold text-foreground">
@@ -71,7 +71,7 @@ export default function TaskCard({
 
           <div className="mt-auto flex items-center justify-between gap-4 border-t border-border/55 pt-4">
             <span className="text-xs text-muted-foreground">Escrow budget</span>
-            <span className="inline-flex items-center gap-1 rounded-[0.6rem] border-[1.5px] border-[#04101f] bg-[var(--accent-gold)] px-2.5 py-1 font-display text-sm text-[#071426] shadow-[2px_2px_0_#040c18]">
+            <span className="inline-flex items-center gap-1 rounded-[var(--radius)] border border-[var(--ink)] bg-[var(--accent-gold)] px-2.5 py-1 font-display text-sm text-[var(--ink)]">
               <CircleDollarSign className="size-3.5" aria-hidden="true" />
               {formatUSDC(budget)} USDC
             </span>
