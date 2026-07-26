@@ -2,17 +2,19 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   CalendarDays,
   CircleDollarSign,
   ExternalLink,
   FileBox,
   Fingerprint,
+  HandCoins,
   Play,
   RadioTower,
   ShieldCheck,
   Trash2,
+  Upload,
   UserRound,
 } from "lucide-react";
 import { encodeFunctionData } from "viem";
@@ -28,22 +30,27 @@ import {
 } from "@/components/TransactionState";
 import { WorkReceiptPanel } from "@/components/WorkReceiptPanel";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BRAND } from "@/lib/brand";
 import {
+  AGENT_REGISTRY_ABI,
   CONTRACTS,
   TASK_ESCROW_ABI,
   ZERO_ADDRESS,
+  explorerAddressUrl,
   formatDate,
   formatUSDC,
-  isUserRejectedError,
   loadTaskReceipt,
-  publicClient,
-  sendTransaction,
+  readContract,
   shortAddress,
   type WorkReceiptRecord,
 } from "@/lib/contracts";
+import { resolveDeliverableCommitment } from "@/lib/deliverable";
+import { describeReadError } from "@/lib/rpc";
+import { describeTxError, sendTransaction, waitForTx } from "@/lib/tx";
 import { useWalletStore } from "@/lib/store";
 
 interface TaskDetail {
@@ -56,6 +63,14 @@ interface TaskDetail {
   deadline: bigint;
   deliverableHash: string;
   deliverableURI: string;
+  /**
+   * Snapshot taken when the record was read. Deadlines are days out, so a
+   * read-time comparison is accurate enough and keeps `Date.now()` out of
+   * render, where it would be an impure call.
+   */
+  pastDeadline: boolean;
+  /** True once the dispute window on a submitted deliverable has lapsed. */
+  disputeWindowClosed: boolean;
 }
 
 export default function TaskDetailPage() {
@@ -71,41 +86,98 @@ export default function TaskDetailPage() {
     useState<TransactionPhase>("idle");
   const [actionHash, setActionHash] = useState("");
   const [actionMessage, setActionMessage] = useState("");
+  const [isRegisteredAgent, setIsRegisteredAgent] = useState(false);
+  const [deliverableForm, setDeliverableForm] = useState({ uri: "", hash: "" });
+
+  const refreshTask = useCallback(async () => {
+    const [data, disputeDeadline] = await Promise.all([
+      readContract({
+        address: CONTRACTS.TASK_ESCROW,
+        abi: TASK_ESCROW_ABI,
+        functionName: "getTask",
+        args: [BigInt(taskId)],
+      }),
+      readContract({
+        address: CONTRACTS.TASK_ESCROW,
+        abi: TASK_ESCROW_ABI,
+        functionName: "getDisputeDeadline",
+        args: [BigInt(taskId)],
+      }),
+    ]);
+    const nowSeconds = BigInt(Math.floor(Date.now() / 1000));
+    setTask({
+      requester: data[0],
+      provider: data[1],
+      budget: data[2],
+      description: data[3],
+      status: Number(data[4]),
+      createdAt: data[5],
+      deadline: data[6],
+      deliverableHash: data[7],
+      deliverableURI: data[8],
+      pastDeadline: data[6] <= nowSeconds,
+      disputeWindowClosed:
+        disputeDeadline > BigInt(0) && disputeDeadline < nowSeconds,
+    });
+    setReceipt(await loadTaskReceipt(BigInt(taskId)));
+  }, [taskId]);
 
   useEffect(() => {
+    let isCurrent = true;
+
     async function loadTask() {
       try {
-        const data = await publicClient.readContract({
-          address: CONTRACTS.TASK_ESCROW,
-          abi: TASK_ESCROW_ABI,
-          functionName: "getTask",
-          args: [BigInt(taskId)],
-        });
-        setTask({
-          requester: data[0],
-          provider: data[1],
-          budget: data[2],
-          description: data[3],
-          status: Number(data[4]),
-          createdAt: data[5],
-          deadline: data[6],
-          deliverableHash: data[7],
-          deliverableURI: data[8],
-        });
-        setReceipt(await loadTaskReceipt(BigInt(taskId)));
+        await refreshTask();
       } catch (error) {
         console.error("Failed to load task:", error);
-        setLoadError("The task record could not be read from Arc testnet.");
+        if (isCurrent) {
+          setLoadError(describeReadError(error));
+        }
       } finally {
-        setIsLoading(false);
+        if (isCurrent) setIsLoading(false);
       }
     }
 
     loadTask();
-  }, [taskId]);
+    return () => {
+      isCurrent = false;
+    };
+  }, [refreshTask]);
 
-  const handleAction = async (
-    action: "startTask" | "approveTask" | "cancelTask",
+  // Accepting an open task requires an active registry entry; surface that
+  // upfront instead of letting the wallet hit a bare "Not registered" revert.
+  useEffect(() => {
+    let isCurrent = true;
+
+    async function checkRegistration() {
+      if (!address) {
+        if (isCurrent) setIsRegisteredAgent(false);
+        return;
+      }
+      try {
+        const active = await readContract({
+          address: CONTRACTS.AGENT_REGISTRY,
+          abi: AGENT_REGISTRY_ABI,
+          functionName: "isActive",
+          args: [address as `0x${string}`],
+        });
+        if (isCurrent) setIsRegisteredAgent(Boolean(active));
+      } catch {
+        if (isCurrent) setIsRegisteredAgent(false);
+      }
+    }
+
+    checkRegistration();
+    return () => {
+      isCurrent = false;
+    };
+  }, [address]);
+
+  /** Submits a task transaction, waits for confirmation, then refetches. */
+  const runAction = async (
+    label: string,
+    data: `0x${string}`,
+    onConfirmed?: () => void,
   ) => {
     if (!isConnected) return;
     setActionPhase("signing");
@@ -113,28 +185,72 @@ export default function TaskDetailPage() {
     setActionMessage("");
 
     try {
-      const data = encodeFunctionData({
+      const hash = await sendTransaction({
+        to: CONTRACTS.TASK_ESCROW,
+        data,
+      });
+      setActionHash(hash);
+      setActionPhase("submitted");
+      setActionMessage("Waiting for Arc to confirm the state change.");
+      toast.success(`${label} submitted`, {
+        description: "Waiting for confirmation.",
+      });
+
+      await waitForTx(hash);
+      await refreshTask();
+      setActionPhase("confirmed");
+      setActionMessage("");
+      onConfirmed?.();
+      toast.success(`${label} confirmed`);
+    } catch (actionError: unknown) {
+      const message = describeTxError(actionError);
+      console.error(`${label} failed:`, actionError);
+      setActionPhase("failed");
+      setActionMessage(message);
+      toast.error(`${label} failed`, { description: message });
+    }
+  };
+
+  const handleAction = (
+    action:
+      | "startTask"
+      | "approveTask"
+      | "cancelTask"
+      | "acceptTask"
+      | "claimUncontestedTask",
+    label: string,
+  ) =>
+    runAction(
+      label,
+      encodeFunctionData({
         abi: TASK_ESCROW_ABI,
         functionName: action,
         args: [BigInt(taskId)],
-      });
-      const tx = await sendTransaction(CONTRACTS.TASK_ESCROW, data);
-      setActionHash(tx);
-      setActionPhase("submitted");
-      setActionMessage("The task state will update after confirmation.");
-      toast.success("Task transaction submitted", {
-        description: "Track the state change on Arcscan.",
-      });
-    } catch (actionError: unknown) {
-      const message = isUserRejectedError(actionError)
-        ? "The wallet transaction was cancelled."
-        : actionError instanceof Error
-          ? actionError.message
-          : "Task action failed.";
+      }),
+    );
+
+  const handleSubmitDeliverable = (event: React.FormEvent) => {
+    event.preventDefault();
+
+    const commitment = resolveDeliverableCommitment(
+      deliverableForm.uri,
+      deliverableForm.hash,
+    );
+    if (!commitment.ok) {
       setActionPhase("failed");
-      setActionMessage(message);
-      toast.error("Task action failed", { description: message });
+      setActionMessage(commitment.error);
+      return;
     }
+
+    return runAction(
+      "Deliverable submission",
+      encodeFunctionData({
+        abi: TASK_ESCROW_ABI,
+        functionName: "submitDeliverable",
+        args: [BigInt(taskId), commitment.hash, commitment.uri],
+      }),
+      () => setDeliverableForm({ uri: "", hash: "" }),
+    );
   };
 
   if (isLoading) {
@@ -165,13 +281,22 @@ export default function TaskDetailPage() {
 
   const isRequester =
     address?.toLowerCase() === task.requester.toLowerCase();
-  const isProvider = address?.toLowerCase() === task.provider.toLowerCase();
   const providerOpen = task.provider === ZERO_ADDRESS;
+  const isProvider =
+    !providerOpen && address?.toLowerCase() === task.provider.toLowerCase();
+  const isBusy = actionPhase === "signing" || actionPhase === "submitted";
+  const pastDeadline = task.pastDeadline;
+  // The escrow accepts a deliverable while Accepted (1) or InProgress (2).
+  const canSubmitDeliverable =
+    isProvider && (task.status === 1 || task.status === 2) && !pastDeadline;
+  // Submitted (3) work the requester never answered: releasable by anyone once
+  // the dispute window lapses, so the escrow cannot be held hostage.
+  const canClaimUncontested =
+    isProvider && task.status === 3 && task.disputeWindowClosed;
 
   return (
     <div
-      className="app-container max-w-5xl py-10 sm:py-14"
-      style={{ ["--page-accent" as string]: "var(--accent-azure)" }}
+      className="app-container max-w-5xl py-16 sm:py-24"
     >
       <header className="border-b border-border/65 pb-7">
         <nav className="mb-3 flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
@@ -190,18 +315,18 @@ export default function TaskDetailPage() {
         </nav>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="font-display text-foreground text-4xl tracking-tight sm:text-5xl">
+            <h1 className="display-lg text-foreground">
               Task #{taskId}
             </h1>
           </div>
           <StatusBadge kind="task" status={task.status} />
         </div>
-        <p className="mt-6 max-w-3xl text-base leading-7 text-[#b8cce0]">
+        <p className="mt-6 max-w-3xl text-base leading-7 text-[var(--muted-foreground)]">
           {task.description}
         </p>
       </header>
 
-      <Reveal className="mt-7 grid overflow-hidden rounded-[0.85rem] border-t border-l border-border/55 sm:grid-cols-2 lg:grid-cols-4">
+      <Reveal className="mt-7 grid overflow-hidden rounded-[var(--radius-surface)] border-t border-l border-border/55 sm:grid-cols-2 lg:grid-cols-4">
         <TaskMetric
           icon={CircleDollarSign}
           label="Budget"
@@ -226,7 +351,7 @@ export default function TaskDetailPage() {
         />
       </Reveal>
 
-      <Reveal className="mt-8 brutal-surface block p-5 sm:p-6" delay={80}>
+      <Reveal className="mt-8 panel block p-5 sm:p-6" delay={80}>
         <div className="flex items-center gap-2">
           <FileBox className="size-4 text-primary" aria-hidden="true" />
           <h2 className="font-display text-lg font-semibold text-foreground">
@@ -276,11 +401,24 @@ export default function TaskDetailPage() {
         <section className="mt-8 border-t border-border/65 pt-6">
           <div className="flex flex-col gap-4">
             <div className="flex flex-wrap gap-3">
+              {providerOpen && !isRequester && task.status === 0 && (
+                <TransactionButton
+                  phase={actionPhase}
+                  onClick={() => handleAction("acceptTask", "Task acceptance")}
+                  disabled={
+                    isBusy || wrongNetwork || !isRegisteredAgent || pastDeadline
+                  }
+                  submittedLabel="Acceptance submitted"
+                >
+                  <HandCoins aria-hidden="true" />
+                  Accept task
+                </TransactionButton>
+              )}
               {isProvider && task.status === 1 && (
                 <TransactionButton
                   phase={actionPhase}
-                  onClick={() => handleAction("startTask")}
-                  disabled={actionPhase === "signing" || wrongNetwork}
+                  onClick={() => handleAction("startTask", "Task start")}
+                  disabled={isBusy || wrongNetwork}
                   submittedLabel="Start submitted"
                 >
                   <Play aria-hidden="true" />
@@ -290,21 +428,34 @@ export default function TaskDetailPage() {
               {isRequester && task.status === 3 && (
                 <TransactionButton
                   phase={actionPhase}
-                  onClick={() => handleAction("approveTask")}
-                  disabled={actionPhase === "signing" || wrongNetwork}
+                  onClick={() => handleAction("approveTask", "Approval")}
+                  disabled={isBusy || wrongNetwork}
                   submittedLabel="Approval submitted"
                 >
                   <ShieldCheck aria-hidden="true" />
                   Approve & release USDC
                 </TransactionButton>
               )}
+              {canClaimUncontested && (
+                <TransactionButton
+                  phase={actionPhase}
+                  onClick={() =>
+                    handleAction("claimUncontestedTask", "Payment release")
+                  }
+                  disabled={isBusy || wrongNetwork}
+                  submittedLabel="Release submitted"
+                >
+                  <HandCoins aria-hidden="true" />
+                  Release payment
+                </TransactionButton>
+              )}
               {isRequester && task.status === 0 && (
                 <TransactionButton
                   phase={actionPhase}
                   variant="outline"
-                  className="border-[#d36c72]/65 text-[#efa2a7] hover:bg-[#d36c72]/10"
-                  onClick={() => handleAction("cancelTask")}
-                  disabled={actionPhase === "signing" || wrongNetwork}
+                  className="border-[var(--destructive)]/65 text-[var(--destructive-fg)] hover:bg-[var(--destructive)]/10"
+                  onClick={() => handleAction("cancelTask", "Cancellation")}
+                  disabled={isBusy || wrongNetwork}
                   submittedLabel="Cancellation submitted"
                 >
                   <Trash2 aria-hidden="true" />
@@ -313,7 +464,7 @@ export default function TaskDetailPage() {
               )}
               <Button asChild variant="outline">
                 <a
-                  href={`https://testnet.arcscan.app/address/${CONTRACTS.TASK_ESCROW}`}
+                  href={explorerAddressUrl(CONTRACTS.TASK_ESCROW)}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -322,6 +473,90 @@ export default function TaskDetailPage() {
                 </a>
               </Button>
             </div>
+
+            {providerOpen &&
+              !isRequester &&
+              task.status === 0 &&
+              !isRegisteredAgent && (
+                <p className="text-xs leading-5 text-muted-foreground">
+                  Only active registered agents can accept tasks.{" "}
+                  <Link href="/register" className="text-primary hover:underline">
+                    Register an agent
+                  </Link>{" "}
+                  to bid on this work.
+                </p>
+              )}
+
+            {canSubmitDeliverable && (
+              <form
+                onSubmit={handleSubmitDeliverable}
+                className="panel space-y-5 p-5 sm:p-6"
+              >
+                <div className="flex items-center gap-2">
+                  <Upload className="size-4 text-primary" aria-hidden="true" />
+                  <h2 className="font-display text-lg font-semibold text-foreground">
+                    Submit deliverable
+                  </h2>
+                </div>
+                <p className="text-sm leading-6 text-muted-foreground">
+                  Publish the artifact somewhere the requester can fetch it
+                  (IPFS, a signed URL, a release tag), then commit its location
+                  and hash on chain.
+                </p>
+                <div className="space-y-2">
+                  <Label htmlFor="deliverable-uri">
+                    Deliverable URI <span className="text-[var(--destructive-fg)]">*</span>
+                  </Label>
+                  <Input
+                    id="deliverable-uri"
+                    value={deliverableForm.uri}
+                    onChange={(event) =>
+                      setDeliverableForm((current) => ({
+                        ...current,
+                        uri: event.target.value,
+                      }))
+                    }
+                    placeholder="ipfs://bafy... or https://..."
+                    className="font-mono text-xs"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="deliverable-hash">
+                    Content hash (optional)
+                  </Label>
+                  <Input
+                    id="deliverable-hash"
+                    value={deliverableForm.hash}
+                    onChange={(event) =>
+                      setDeliverableForm((current) => ({
+                        ...current,
+                        hash: event.target.value,
+                      }))
+                    }
+                    placeholder="0x… 32-byte hash of the artifact"
+                    className="font-mono text-xs"
+                  />
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    Leave empty to commit <code>keccak256</code> of the URI
+                    instead. Supplying the artifact&apos;s own hash lets the
+                    requester verify the bytes they receive.
+                  </p>
+                </div>
+                <TransactionButton
+                  phase={actionPhase}
+                  type="submit"
+                  disabled={isBusy || wrongNetwork}
+                  submittedLabel="Submission sent"
+                >
+                  <Upload aria-hidden="true" />
+                  {wrongNetwork
+                    ? "Switch to Arc Testnet first"
+                    : "Submit deliverable"}
+                </TransactionButton>
+              </form>
+            )}
+
             <TransactionState
               phase={actionPhase}
               hash={actionHash || undefined}

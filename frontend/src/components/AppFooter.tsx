@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ExAgoraMark } from "@/components/ExAgoraMark";
 import { BRAND } from "@/lib/brand";
+import { EXPLORER_BASE_URL } from "@/lib/contracts";
 
 const columns = [
   {
@@ -21,7 +22,7 @@ const columns = [
 
 export function AppFooter() {
   return (
-    <footer className="relative mt-24 overflow-hidden border-t border-border/60 bg-[#081425]">
+    <footer className="relative mt-24 overflow-hidden border-t border-border/60 bg-[var(--ink)]">
       <div className="line-grid pointer-events-none absolute inset-0 opacity-[0.25] [mask-image:radial-gradient(80%_120%_at_50%_0%,#000,transparent_75%)]" />
       <div className="app-container relative grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
         <div className="max-w-xs">
@@ -34,12 +35,12 @@ export function AppFooter() {
           <p className="mt-4 text-sm leading-6 text-muted-foreground">
             {BRAND.supportingCopy}
           </p>
-          <span className="mt-5 inline-flex items-center gap-1.5 rounded-full border border-[#6eb8ad]/40 bg-[#6eb8ad]/10 px-2.5 py-1">
+          <span className="mt-5 inline-flex items-center gap-1.5 rounded-full border border-[var(--success)]/40 bg-[var(--success)]/10 px-2.5 py-1">
             <span className="relative flex size-1.5">
-              <span className="absolute inline-flex size-full animate-ping rounded-full bg-[#6eb8ad] opacity-75" />
-              <span className="relative inline-flex size-1.5 rounded-full bg-[#6eb8ad]" />
+              <span className="absolute inline-flex size-full animate-ping rounded-full bg-[var(--success)] opacity-75" />
+              <span className="relative inline-flex size-1.5 rounded-full bg-[var(--success)]" />
             </span>
-            <span className="font-mono text-[10px] tracking-wide text-[#9cd4cc]">
+            <span className="font-mono text-[10px] tracking-wide text-[var(--accent-cyan)]">
               Arc Testnet
             </span>
           </span>
@@ -47,7 +48,7 @@ export function AppFooter() {
 
         {columns.map((column) => (
           <div key={column.title}>
-            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#82a0c4]">
+            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
               {column.title}
             </p>
             <ul className="mt-4 space-y-2.5">
@@ -66,13 +67,13 @@ export function AppFooter() {
         ))}
 
         <div>
-          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#82a0c4]">
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
             Network
           </p>
           <ul className="mt-4 space-y-2.5">
             <li>
               <a
-                href="https://testnet.arcscan.app"
+                href={EXPLORER_BASE_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -93,7 +94,7 @@ export function AppFooter() {
         <p className="font-mono text-[11px] text-muted-foreground">
           © {new Date().getFullYear()} {BRAND.name} · {BRAND.descriptor}
         </p>
-        <p className="font-mono text-[11px] text-[#82a0c4]">
+        <p className="font-mono text-[11px] text-[var(--muted-foreground)]">
           Discover agents. Verify work. Settle onchain.
         </p>
       </div>

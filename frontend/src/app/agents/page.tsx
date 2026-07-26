@@ -3,20 +3,20 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Bot, RadioTower, Search, SlidersHorizontal } from "lucide-react";
-import AgentRow from "@/components/AgentRow";
+import { AgentTable } from "@/components/AgentTable";
 import { EmptyState } from "@/components/EmptyState";
-import { Reveal } from "@/components/exagora/Reveal";
 import { PageHeader } from "@/components/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { BRAND } from "@/lib/brand";
+import { READ_CONCURRENCY, describeReadError, mapLimit } from "@/lib/rpc";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   AGENT_REGISTRY_ABI,
   CONTRACTS,
   loadAgentVerificationStats,
-  publicClient,
+  readContract,
   type VerificationStats,
 } from "@/lib/contracts";
 
@@ -45,24 +45,24 @@ export default function AgentsPage() {
   useEffect(() => {
     async function loadAgents() {
       try {
-        const count = await publicClient.readContract({
+        const count = await readContract({
           address: CONTRACTS.AGENT_REGISTRY,
           abi: AGENT_REGISTRY_ABI,
           functionName: "getAgentCount",
         });
 
-        const loaded = await Promise.all(
-          Array.from(
-            { length: Number(count) },
-            async (_, i): Promise<AgentSummary | null> => {
+        const loaded = await mapLimit(
+          Array.from({ length: Number(count) }, (_, i) => i),
+          READ_CONCURRENCY,
+          async (i): Promise<AgentSummary | null> => {
               try {
-                const addr = await publicClient.readContract({
+                const addr = await readContract({
                   address: CONTRACTS.AGENT_REGISTRY,
                   abi: AGENT_REGISTRY_ABI,
                   functionName: "getAgentByIndex",
                   args: [BigInt(i)],
                 });
-                const data = await publicClient.readContract({
+                const data = await readContract({
                   address: CONTRACTS.AGENT_REGISTRY,
                   abi: AGENT_REGISTRY_ABI,
                   functionName: "getAgent",
@@ -82,19 +82,18 @@ export default function AgentsPage() {
                   isActive: data[9],
                   verificationStats: await loadAgentVerificationStats(addr),
                 };
-              } catch (agentError) {
-                console.error(`Failed to load agent ${i}:`, agentError);
-                return null;
-              }
-            },
-          ),
+          } catch (agentError) {
+            console.error(`Failed to load agent ${i}:`, agentError);
+            return null;
+          }
+          },
         );
         setAgents(
           loaded.filter((agent): agent is AgentSummary => agent !== null),
         );
       } catch (error) {
         console.error("Failed to load agents:", error);
-        setLoadError("Agent records could not be loaded from Arc testnet.");
+        setLoadError(describeReadError(error));
       } finally {
         setIsLoading(false);
       }
@@ -103,9 +102,11 @@ export default function AgentsPage() {
     loadAgents();
   }, []);
 
+  // `averageRating` arrives scaled by 100, so it is normalised back to 0-5
+  // before weighting — otherwise it would swamp the verified-work term.
   const reputationScore = (agent: AgentSummary) =>
     Number(agent.verificationStats?.totalReceipts ?? BigInt(0)) * 1000 +
-    Number(agent.averageRating) * 5 +
+    (Number(agent.averageRating) / 100) * 5 +
     Number(agent.completedTasks);
 
   const filtered = agents
@@ -135,8 +136,7 @@ export default function AgentsPage() {
 
   return (
     <div
-      className="app-container py-10 sm:py-14"
-      style={{ ["--page-accent" as string]: "var(--accent-cyan)" }}
+      className="app-container py-16 sm:py-24"
     >
       <PageHeader
         eyebrow="Marketplace"
@@ -159,7 +159,7 @@ export default function AgentsPage() {
         }
       />
 
-      <div className="mt-8 flex flex-col gap-4 rounded-[0.85rem] border border-primary/20 bg-gradient-to-b from-[#18365a]/25 to-[#0b192d]/80 p-4 shadow-[3px_3px_0_#040c18] transition-colors duration-300 focus-within:border-[#7fe3d4]/45 sm:flex-row sm:items-center">
+      <div className="mt-8 flex flex-col gap-4 rounded-[var(--radius-surface)] border border-border p-4 transition-colors focus-within:border-[var(--accent-cyan)]/45 sm:flex-row sm:items-center">
         <div className="relative min-w-0 flex-1">
           <Search
             className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
@@ -198,19 +198,12 @@ export default function AgentsPage() {
 
       <div className="mt-8">
         {isLoading ? (
-          <div className="space-y-3">
-            {Array.from({ length: 6 }).map((_, index) => (
-              <div
-                key={index}
-                className="flex items-center gap-4 rounded-[0.85rem] border border-border/60 bg-[#0b192d]/60 p-5"
-              >
-                <Skeleton className="size-14 shrink-0 rounded-[0.85rem] bg-primary/10" />
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="h-4 w-40 rounded-full bg-primary/10" />
-                  <Skeleton className="h-3 w-full max-w-md rounded-full bg-primary/10" />
-                  <Skeleton className="h-3 w-32 rounded-full bg-primary/10" />
-                </div>
-                <Skeleton className="hidden h-7 w-16 rounded-full bg-primary/10 sm:block" />
+          <div className="overflow-hidden rounded-[var(--radius-surface)] border border-border">
+            {Array.from({ length: 8 }).map((_, index) => (
+              <div key={index} className="flex items-center gap-4 border-b border-border px-4 py-3.5 last:border-b-0">
+                <Skeleton className="size-8 shrink-0 rounded-[var(--radius)] bg-foreground/8" />
+                <Skeleton className="h-3.5 w-40 rounded bg-foreground/8" />
+                <Skeleton className="ml-auto h-3.5 w-16 rounded bg-foreground/8" />
               </div>
             ))}
           </div>
@@ -247,21 +240,11 @@ export default function AgentsPage() {
             }
           />
         ) : (
-          <div className="space-y-3">
-            <p className="mb-1 flex items-center gap-2 px-1 font-mono text-[11px] uppercase tracking-[0.14em] text-[#82a0c4]">
-              <span className="h-px w-6 bg-[var(--page-accent)]/60" />
+          <div>
+            <p className="mb-3 px-1 font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
               Ranked by verified work &amp; reputation
             </p>
-            {filtered.map((agent, index) => (
-              <Reveal
-                key={agent.address}
-                delay={Math.min(index, 10) * 45}
-                variant={index % 2 === 0 ? "left" : "right"}
-                className="block"
-              >
-                <AgentRow rank={index + 1} {...agent} />
-              </Reveal>
-            ))}
+            <AgentTable agents={filtered} />
           </div>
         )}
       </div>

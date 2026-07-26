@@ -24,10 +24,11 @@ import {
   AGENT_REGISTRY_ABI,
   CONTRACTS,
   REPUTATION_ABI,
+  explorerAddressUrl,
   formatPercentBps,
   formatUSDC,
   loadAgentVerificationStats,
-  publicClient,
+  readContract,
   type VerificationStats,
 } from "@/lib/contracts";
 import { useWalletStore } from "@/lib/store";
@@ -69,7 +70,7 @@ export default function AgentProfilePage() {
   useEffect(() => {
     async function loadAgent() {
       try {
-        const data = await publicClient.readContract({
+        const data = await readContract({
           address: CONTRACTS.AGENT_REGISTRY,
           abi: AGENT_REGISTRY_ABI,
           functionName: "getAgent",
@@ -90,7 +91,7 @@ export default function AgentProfilePage() {
         });
 
         try {
-          const rep = await publicClient.readContract({
+          const rep = await readContract({
             address: CONTRACTS.REPUTATION,
             abi: REPUTATION_ABI,
             functionName: "getReputation",
@@ -164,7 +165,6 @@ export default function AgentProfilePage() {
   return (
     <div
       className="app-container grid gap-8 py-10 lg:grid-cols-[minmax(0,1fr)_20rem] lg:py-14"
-      style={{ ["--page-accent" as string]: "var(--accent-cyan)" }}
     >
       <section className="min-w-0 space-y-8">
         <div className="border-b border-border/65 pb-7">
@@ -192,7 +192,7 @@ export default function AgentProfilePage() {
                   labelClassName="text-lg"
                 />
                 <div className="min-w-0">
-                  <h1 className="font-display text-foreground text-4xl tracking-tight sm:text-5xl">
+                  <h1 className="display-lg text-foreground">
                     {agent.name}
                   </h1>
                   <p className="mt-2 break-all font-mono text-xs leading-5 text-muted-foreground">
@@ -206,7 +206,7 @@ export default function AgentProfilePage() {
               status={agent.isActive ? "active" : "inactive"}
             />
           </div>
-          <p className="mt-6 max-w-3xl text-base leading-7 text-[#b8cce0]">
+          <p className="mt-6 max-w-3xl text-base leading-7 text-[var(--muted-foreground)]">
             {agent.description || "No profile description provided."}
           </p>
           <div className="mt-5 flex flex-wrap gap-2">
@@ -218,13 +218,13 @@ export default function AgentProfilePage() {
 
         <Reveal className="block">
           <div className="mb-4 flex items-center gap-2">
-            <BadgeCheck className="size-4 text-[#9cd4cc]" aria-hidden="true" />
+            <BadgeCheck className="size-4 text-[var(--accent-cyan)]" aria-hidden="true" />
             <h2 className="font-display text-lg font-semibold text-foreground">
               Verified work
             </h2>
           </div>
           {hasVerificationStats ? (
-            <div className="brutal-surface grid sm:grid-cols-3">
+            <div className="panel grid sm:grid-cols-3">
               <Metric
                 label="Receipts"
                 value={Number(
@@ -242,7 +242,7 @@ export default function AgentProfilePage() {
               />
             </div>
           ) : (
-            <div className="brutal-surface p-6">
+            <div className="panel p-6">
               <p className="text-sm leading-6 text-muted-foreground">
                 No verifier-backed work has been recorded for this agent yet.
               </p>
@@ -252,19 +252,19 @@ export default function AgentProfilePage() {
 
         <Reveal className="block" delay={90}>
           <div className="mb-4 flex items-center gap-2">
-            <Star className="size-4 text-[#d4ad6f]" aria-hidden="true" />
+            <Star className="size-4 text-[var(--warning)]" aria-hidden="true" />
             <h2 className="font-display text-lg font-semibold text-foreground">
               Reputation
             </h2>
           </div>
-          <div className="brutal-surface divide-y divide-border/55">
+          <div className="panel divide-y divide-border/55">
             <div className="flex flex-wrap items-center justify-between gap-4 p-5">
               <span className="text-sm text-muted-foreground">
                 Buyer rating
               </span>
               <span className="flex items-center gap-2 font-mono text-sm text-foreground">
                 <Star
-                  className="size-3.5 text-[#d4ad6f]"
+                  className="size-3.5 text-[var(--warning)]"
                   aria-hidden="true"
                 />
                 {rating.toFixed(1)} / {Number(agent.ratingCount)} reviews
@@ -295,7 +295,7 @@ export default function AgentProfilePage() {
       </section>
 
       <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
-        <Reveal className="brutal-surface block p-5" delay={120}>
+        <Reveal className="panel block p-5" delay={120}>
           <p className="text-sm font-semibold text-foreground">
             Commercial terms
           </p>
@@ -336,7 +336,7 @@ export default function AgentProfilePage() {
           )}
           <Button asChild variant="outline" className="w-full">
             <a
-              href={`https://testnet.arcscan.app/address/${address}`}
+              href={explorerAddressUrl(address)}
               target="_blank"
               rel="noopener noreferrer"
             >

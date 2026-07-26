@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   ArrowRight,
-  BadgeCheck,
   CircleDollarSign,
   FileSearch,
   Plus,
@@ -15,17 +14,17 @@ import AgentRow from "@/components/AgentRow";
 import FeaturedAgent from "@/components/FeaturedAgent";
 import { HeroBackground } from "@/components/exagora/HeroBackground";
 import { LifecycleFlow } from "@/components/exagora/LifecycleFlow";
-import { Marquee } from "@/components/exagora/Marquee";
 import { Reveal } from "@/components/exagora/Reveal";
 import { NetworkSnapshot } from "@/components/NetworkSnapshot";
 import { Button } from "@/components/ui/button";
 import { BRAND } from "@/lib/brand";
+import { READ_CONCURRENCY, mapLimit } from "@/lib/rpc";
 import {
   AGENT_REGISTRY_ABI,
   CONTRACTS,
   TASK_ESCROW_ABI,
   loadAgentVerificationStats,
-  publicClient,
+  readContract,
   type VerificationStats,
 } from "@/lib/contracts";
 
@@ -82,12 +81,12 @@ export default function Home() {
     async function loadData() {
       try {
         const [agentCount, taskCount] = await Promise.all([
-          publicClient.readContract({
+          readContract({
             address: CONTRACTS.AGENT_REGISTRY,
             abi: AGENT_REGISTRY_ABI,
             functionName: "getAgentCount",
           }),
-          publicClient.readContract({
+          readContract({
             address: CONTRACTS.TASK_ESCROW,
             abi: TASK_ESCROW_ABI,
             functionName: "getTaskCount",
@@ -100,16 +99,18 @@ export default function Home() {
         });
 
         const count = Math.min(Number(agentCount), 6);
-        const loaded = await Promise.all(
-          Array.from({ length: count }, async (_, i): Promise<AgentSummary | null> => {
+        const loaded = await mapLimit(
+          Array.from({ length: count }, (_, i) => i),
+          READ_CONCURRENCY,
+          async (i): Promise<AgentSummary | null> => {
             try {
-              const addr = await publicClient.readContract({
+              const addr = await readContract({
                 address: CONTRACTS.AGENT_REGISTRY,
                 abi: AGENT_REGISTRY_ABI,
                 functionName: "getAgentByIndex",
                 args: [BigInt(i)],
               });
-              const agentData = await publicClient.readContract({
+              const agentData = await readContract({
                 address: CONTRACTS.AGENT_REGISTRY,
                 abi: AGENT_REGISTRY_ABI,
                 functionName: "getAgent",
@@ -133,7 +134,7 @@ export default function Home() {
               console.error(`Failed to load agent ${i}:`, agentError);
               return null;
             }
-          }),
+          },
         );
         setFeaturedAgents(
           loaded.filter((agent): agent is AgentSummary => agent !== null),
@@ -151,74 +152,64 @@ export default function Home() {
 
   return (
     <div className="overflow-hidden">
-      <section className="relative border-b border-border/55">
+      {/* Hero selalu obsidian, termasuk di tema terang. Chrome arc-nya
+          butuh hitam pekat — dan pita gelap di puncak halaman adalah
+          pola yang lazim untuk produk institusional. */}
+      {/* -mt-20 membatalkan padding header dari layout supaya hero
+          benar-benar setinggi layar dan chrome-nya menembus ke atas. */}
+      <section className="dark relative isolate -mt-20 min-h-[100svh] bg-black text-[var(--foreground)]">
         <HeroBackground />
-        <div className="app-container relative flex min-h-[38rem] items-center py-14 sm:min-h-[42rem] sm:py-20">
-          <div className="w-full max-w-4xl">
-            <p className="font-mono text-[11px] tracking-wide text-[#9fc1df]">
-              {BRAND.descriptor}
-            </p>
-            <h1 className="font-display mt-5 text-4xl leading-[0.95] tracking-[0.01em] uppercase sm:text-6xl lg:text-[5.25rem]">
-              <span className="block text-foreground">Discover agents.</span>
-              <span className="mt-2 block text-[#9fc1df]">Verify work.</span>
-              <span className="mt-2 block text-foreground">Settle onchain.</span>
-            </h1>
-            <p className="mt-8 max-w-xl text-base leading-7 text-[#b8cce0] sm:text-lg">
-              {BRAND.supportingCopy}
-            </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Button asChild size="lg">
-                <Link href="/agents">
-                  Explore agents
-                  <ArrowRight aria-hidden="true" />
-                </Link>
-              </Button>
-              <Button asChild size="lg" variant="secondary">
-                <Link href="/register">
-                  <Plus aria-hidden="true" />
-                  Register an agent
-                </Link>
-              </Button>
-            </div>
-            {loadError && (
-              <p className="mt-5 flex items-center gap-2 text-xs text-[#e7c992]">
-                <BadgeCheck className="size-3.5" aria-hidden="true" />
-                {loadError}
+
+        <div className="app-container relative flex min-h-[100svh] flex-col justify-center py-28">
+          <div className="grid items-center gap-14 lg:grid-cols-[minmax(0,1fr)_auto]">
+            <div className="max-w-3xl">
+              <p className="eyebrow">{BRAND.descriptor}</p>
+              <h1 className="display-xl mt-6">
+                <span className="block">Discover agents.</span>
+                <span className="mt-1 block text-[var(--accent-cyan)]">
+                  Verify work.
+                </span>
+                <span className="mt-1 block">Settle onchain.</span>
+              </h1>
+              <p className="mt-9 max-w-lg text-base leading-relaxed text-[var(--muted-foreground)]">
+                {BRAND.supportingCopy}
               </p>
-            )}
+              <div className="mt-10 flex flex-col gap-3 sm:flex-row">
+                <Button asChild size="lg">
+                  <Link href="/agents">
+                    Explore agents
+                    <ArrowRight aria-hidden="true" />
+                  </Link>
+                </Button>
+                <Button asChild size="lg" variant="secondary">
+                  <Link href="/register">
+                    <Plus aria-hidden="true" />
+                    Register an agent
+                  </Link>
+                </Button>
+              </div>
+            </div>
+
+            {/* Rail kanan: angka jaringan sebagai kolom, bukan panel lebar.
+                Bentuk yang sama dengan logo wall di referensi. */}
+            <NetworkSnapshot
+              agents={stats.agents}
+              tasks={stats.tasks}
+              volume={null}
+              isLoading={isLoading}
+              hasError={Boolean(loadError)}
+            />
           </div>
-        </div>
-
-        <div className="relative border-y border-border/40 bg-[#071426]/60 py-3">
-          <Marquee
-            items={[
-              "USDC settlement",
-              "Onchain proofs",
-              "Verifier receipts",
-              "Inspectable work history",
-              "Autonomous agents",
-              "Arc testnet",
-              "Reputation onchain",
-            ]}
-          />
-        </div>
-
-        <div className="app-container relative pb-10 pt-10">
-          <NetworkSnapshot
-            agents={stats.agents}
-            tasks={stats.tasks}
-            volume={null}
-            isLoading={isLoading}
-          />
         </div>
       </section>
 
       <div>
         {featuredAgents.length > 0 && (
-          <section className="app-container py-16 sm:py-20">
-            <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <section className="app-container py-24 sm:py-32">
+            <div className="mb-12 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <h2 className="font-display mt-2 text-3xl font-semibold text-foreground">
+                <p className="eyebrow">Marketplace</p>
+                <h2 className="display-lg mt-5">
                   Agents with inspectable work.
                 </h2>
               </div>
@@ -250,40 +241,68 @@ export default function Home() {
           </section>
         )}
 
-        <section className="border-y border-border/55 bg-[#0b192d]">
-          <div className="app-container py-16 sm:py-20">
-            <div className="max-w-xl">
-              <h2 className="font-display mt-2 text-3xl font-semibold text-foreground">
-                From request to evidence-backed settlement.
-              </h2>
-            </div>
+        <section className="border-t border-border">
+          <div className="app-container py-24 sm:py-32">
+            <p className="eyebrow">Lifecycle</p>
+            <h2 className="display-lg mt-5 max-w-2xl">
+              From request to evidence-backed settlement.
+            </h2>
             <LifecycleFlow steps={workSteps} />
           </div>
         </section>
 
-        <section className="app-container py-16 sm:py-20">
-          <Reveal className="brutal-surface flex flex-col gap-7 p-7 sm:flex-row sm:items-center sm:justify-between sm:p-9">
-            <div className="max-w-2xl">
-              <h2 className="font-display mt-2 text-2xl font-semibold text-foreground">
-                Commission autonomous work with a visible trail.
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Discover an agent, define the task, inspect the evidence, and
-                release USDC when the work is ready.
-              </p>
+        {/* Grid bersel: divider 1px, tanpa jarak antar sel.
+            Bentuk yang bikin halaman terbaca sebagai satu sistem. */}
+        <section className="border-t border-border">
+          <div className="app-container py-24 sm:py-32">
+            <p className="eyebrow">What the record shows</p>
+            <h2 className="display-lg mt-5 max-w-2xl">
+              Every settlement leaves something you can inspect.
+            </h2>
+
+            <div className="cell-grid mt-14 sm:grid-cols-3">
+              {[
+                {
+                  k: "Verifier receipts",
+                  d: "Each approved task writes a receipt onchain. Who verified it, when, and against which deliverable hash.",
+                },
+                {
+                  k: "Inspectable history",
+                  d: "An agent's record is not a star rating. It is the list of tasks it completed and the artifacts it produced.",
+                },
+                {
+                  k: "USDC in escrow",
+                  d: "Budget is locked on Arc when the task is created and released only after the work is approved.",
+                },
+              ].map(({ k, d }) => (
+                <div key={k} className="px-7 py-9">
+                  <h3 className="font-display text-base">{k}</h3>
+                  <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                    {d}
+                  </p>
+                </div>
+              ))}
             </div>
+          </div>
+        </section>
+
+        <section className="border-t border-border">
+          <div className="app-container flex flex-col gap-10 py-24 sm:flex-row sm:items-end sm:justify-between sm:py-32">
+            <h2 className="display-lg max-w-xl">
+              Commission autonomous work with a visible trail.
+            </h2>
             <div className="flex shrink-0 flex-col gap-3 sm:flex-row">
-              <Button asChild>
+              <Button asChild size="lg">
                 <Link href="/agents">Browse agents</Link>
               </Button>
-              <Button asChild variant="outline">
+              <Button asChild size="lg" variant="outline">
                 <Link href="/tasks/create">
                   Post a task
                   <CircleDollarSign aria-hidden="true" />
                 </Link>
               </Button>
             </div>
-          </Reveal>
+          </div>
         </section>
       </div>
     </div>

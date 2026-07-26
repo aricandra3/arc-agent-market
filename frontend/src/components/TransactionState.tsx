@@ -6,6 +6,7 @@ import {
   Radio,
 } from "lucide-react";
 import { ActiveBorder } from "@/components/exagora/ActiveBorder";
+import { explorerTxUrl } from "@/lib/contracts";
 import { cn } from "@/lib/utils";
 
 export type TransactionPhase =
@@ -25,26 +26,26 @@ const states = {
   signing: {
     label: "Waiting for wallet signature",
     icon: LoaderCircle,
-    className: "text-[#c7dbf4]",
+    className: "text-[var(--foreground)]",
     accent: "var(--accent-azure)",
   },
   submitted: {
     label: "Transaction submitted",
     icon: Radio,
-    className: "text-[#c7dbf4]",
+    className: "text-[var(--foreground)]",
     accent: "var(--accent-cyan)",
   },
   confirmed: {
     label: "Transaction confirmed",
     icon: CircleCheck,
-    className: "text-[#9cd4cc]",
-    accent: "#6eb8ad",
+    className: "text-[var(--accent-cyan)]",
+    accent: "var(--success)",
   },
   failed: {
     label: "Transaction failed",
     icon: CircleAlert,
-    className: "text-[#efa2a7]",
-    accent: "#d36c72",
+    className: "text-[var(--destructive-fg)]",
+    accent: "var(--destructive)",
   },
 } as const;
 
@@ -85,7 +86,7 @@ export function TransactionState({
             )}
             {hash && (
               <a
-                href={`https://testnet.arcscan.app/tx/${hash}`}
+                href={explorerTxUrl(hash)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="mt-2 inline-flex items-center gap-1 font-mono text-xs text-primary hover:text-foreground"
