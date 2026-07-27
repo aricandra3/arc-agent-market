@@ -145,6 +145,8 @@ export const AGENT_REGISTRY_ABI = [
   { inputs: [{ name: 'wallet', type: 'address' }], name: 'isRegistered', outputs: [{ name: '', type: 'bool' }], stateMutability: 'view', type: 'function' },
   { inputs: [{ name: 'wallet', type: 'address' }], name: 'isActive', outputs: [{ name: '', type: 'bool' }], stateMutability: 'view', type: 'function' },
   { inputs: [{ name: 'skills', type: 'string[]' }, { name: 'ratePerTask', type: 'uint256' }, { name: 'ratePerCall', type: 'uint256' }, { name: 'metadataURI', type: 'string' }], name: 'updateAgent', outputs: [], stateMutability: 'nonpayable', type: 'function' },
+  { inputs: [], name: 'deactivateAgent', outputs: [], stateMutability: 'nonpayable', type: 'function' },
+  { inputs: [], name: 'reactivateAgent', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [{ name: 'name', type: 'string' }, { name: 'description', type: 'string' }], name: 'updateProfile', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { anonymous: false, inputs: [{ indexed: true, name: 'wallet', type: 'address' }, { indexed: false, name: 'name', type: 'string' }, { indexed: false, name: 'skills', type: 'string[]' }], name: 'AgentRegistered', type: 'event' },
 ] as const;

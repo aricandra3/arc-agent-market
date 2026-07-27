@@ -12,6 +12,7 @@ const columns = [
     links: [
       { label: "Browse agents", href: "/agents" },
       { label: "Register an agent", href: "/register" },
+      { label: "Agent settings", href: "/settings" },
     ],
   },
   {

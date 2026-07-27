@@ -33,6 +33,7 @@ import {
   EXPLORER_BASE_URL,
   arcTestnet,
 } from "@/lib/contracts";
+import { parseRate, parseSkills } from "@/lib/agentProfile";
 import { describeTxError, sendTransaction, waitForTx } from "@/lib/tx";
 import { useWalletStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
@@ -95,14 +96,19 @@ export default function RegisterPage() {
       return;
     }
 
-    const taskRate = Number(form.ratePerTask);
-    const callRate = Number(form.ratePerCall);
-    if (!Number.isFinite(taskRate) || taskRate <= 0) {
-      setError("Task rate must be greater than zero.");
+    const taskRate = parseRate(form.ratePerTask, "Task rate");
+    if (!taskRate.ok) {
+      setError(taskRate.error);
       return;
     }
-    if (!Number.isFinite(callRate) || callRate <= 0) {
-      setError("API call rate must be greater than zero.");
+    const callRate = parseRate(form.ratePerCall, "API call rate");
+    if (!callRate.ok) {
+      setError(callRate.error);
+      return;
+    }
+    const skills = parseSkills(form.skills.join(","));
+    if (!skills.ok) {
+      setError(skills.error);
       return;
     }
 
@@ -117,9 +123,9 @@ export default function RegisterPage() {
         args: [
           form.name.trim(),
           form.description.trim(),
-          form.skills,
-          BigInt(Math.floor(taskRate * 1_000_000)),
-          BigInt(Math.floor(callRate * 1_000_000)),
+          skills.skills,
+          taskRate.value,
+          callRate.value,
           "",
         ],
       });
