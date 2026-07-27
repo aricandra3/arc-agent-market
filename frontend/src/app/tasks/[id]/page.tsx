@@ -29,6 +29,7 @@ import {
   type TransactionPhase,
 } from "@/components/TransactionState";
 import { CreateReceiptForm } from "@/components/CreateReceiptForm";
+import { DisputePanel } from "@/components/DisputePanel";
 import { ReviewPanel } from "@/components/ReviewPanel";
 import { WorkReceiptPanel } from "@/components/WorkReceiptPanel";
 import { Button } from "@/components/ui/button";
@@ -52,6 +53,7 @@ import {
   type WorkReceiptRecord,
 } from "@/lib/contracts";
 import { resolveDeliverableCommitment } from "@/lib/deliverable";
+import { describeDisputeWindow } from "@/lib/dispute";
 import { describeReadError } from "@/lib/rpc";
 import { describeTxError, sendTransaction, waitForTx } from "@/lib/tx";
 import { useWalletStore } from "@/lib/store";
@@ -74,6 +76,10 @@ interface TaskDetail {
   pastDeadline: boolean;
   /** True once the dispute window on a submitted deliverable has lapsed. */
   disputeWindowClosed: boolean;
+  /** Raw deadline, kept so the remaining window can be described. */
+  disputeDeadline: bigint;
+  /** Read-time clock, so `Date.now()` stays out of render. */
+  readAtSeconds: number;
 }
 
 export default function TaskDetailPage() {
@@ -121,6 +127,8 @@ export default function TaskDetailPage() {
       pastDeadline: data[6] <= nowSeconds,
       disputeWindowClosed:
         disputeDeadline > BigInt(0) && disputeDeadline < nowSeconds,
+      disputeDeadline,
+      readAtSeconds: Number(nowSeconds),
     });
     setReceipt(await loadTaskReceipt(BigInt(taskId)));
   }, [taskId]);
@@ -296,6 +304,13 @@ export default function TaskDetailPage() {
   // the dispute window lapses, so the escrow cannot be held hostage.
   const canClaimUncontested =
     isProvider && task.status === 3 && task.disputeWindowClosed;
+  const disputeWindow = describeDisputeWindow(
+    task.disputeDeadline,
+    task.readAtSeconds,
+  );
+  // Either party may dispute Submitted (3) work while the window is open.
+  const canDispute =
+    Boolean(isRequester || isProvider) && task.status === 3 && disputeWindow.open;
 
   return (
     <div
@@ -405,6 +420,16 @@ export default function TaskDetailPage() {
       {isProvider && task.status === 3 && !receipt && (
         <Reveal className="mt-8 block" delay={140}>
           <CreateReceiptForm taskId={taskId} onCreated={refreshTask} />
+        </Reveal>
+      )}
+
+      {canDispute && (
+        <Reveal className="mt-8 block" delay={150}>
+          <DisputePanel
+            taskId={taskId}
+            windowLabel={disputeWindow.label}
+            onDisputed={refreshTask}
+          />
         </Reveal>
       )}
 

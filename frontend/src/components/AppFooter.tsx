@@ -91,6 +91,17 @@ export function AppFooter() {
                 USDC settlement
               </span>
             </li>
+            <li>
+              {/* Every admin page gates itself on the on-chain owner, so linking
+                  it publicly exposes nothing — and without a link it was
+                  reachable only by typing the URL. */}
+              <Link
+                href="/admin"
+                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Protocol admin
+              </Link>
+            </li>
           </ul>
         </div>
       </div>
