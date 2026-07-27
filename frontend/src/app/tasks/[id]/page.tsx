@@ -14,6 +14,7 @@ import {
   RadioTower,
   ShieldCheck,
   Trash2,
+  Undo2,
   Upload,
   UserRound,
 } from "lucide-react";
@@ -228,7 +229,8 @@ export default function TaskDetailPage() {
       | "approveTask"
       | "cancelTask"
       | "acceptTask"
-      | "claimUncontestedTask",
+      | "claimUncontestedTask"
+      | "expireTask",
     label: string,
   ) =>
     runAction(
@@ -308,6 +310,13 @@ export default function TaskDetailPage() {
     task.disputeDeadline,
     task.readAtSeconds,
   );
+  // Open (0), Accepted (1) and InProgress (2) all refund once the deadline
+  // lapses. Permissionless on chain, but only the requester is shown the button:
+  // it is their money coming back.
+  const canExpire =
+    Boolean(isRequester) &&
+    [0, 1, 2].includes(task.status) &&
+    task.pastDeadline;
   // Either party may dispute Submitted (3) work while the window is open.
   const canDispute =
     Boolean(isRequester || isProvider) && task.status === 3 && disputeWindow.open;
@@ -493,6 +502,18 @@ export default function TaskDetailPage() {
                 >
                   <HandCoins aria-hidden="true" />
                   Release payment
+                </TransactionButton>
+              )}
+              {canExpire && (
+                <TransactionButton
+                  phase={actionPhase}
+                  variant="outline"
+                  onClick={() => handleAction("expireTask", "Refund")}
+                  disabled={isBusy || wrongNetwork}
+                  submittedLabel="Refund submitted"
+                >
+                  <Undo2 aria-hidden="true" />
+                  Reclaim escrow
                 </TransactionButton>
               )}
               {isRequester && task.status === 0 && (

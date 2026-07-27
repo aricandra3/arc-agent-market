@@ -158,6 +158,7 @@ export const TASK_ESCROW_ABI = [
   { inputs: [{ name: 'taskId', type: 'uint256' }, { name: 'deliverableHash', type: 'bytes32' }, { name: 'deliverableURI', type: 'string' }], name: 'submitDeliverable', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [{ name: 'taskId', type: 'uint256' }], name: 'approveTask', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [{ name: 'taskId', type: 'uint256' }], name: 'cancelTask', outputs: [], stateMutability: 'nonpayable', type: 'function' },
+  { inputs: [{ name: 'taskId', type: 'uint256' }], name: 'expireTask', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [{ name: 'taskId', type: 'uint256' }], name: 'claimUncontestedTask', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [{ name: 'taskId', type: 'uint256' }], name: 'getTask', outputs: [{ name: 'requester', type: 'address' }, { name: 'provider', type: 'address' }, { name: 'budget', type: 'uint256' }, { name: 'description', type: 'string' }, { name: 'status', type: 'uint8' }, { name: 'createdAt', type: 'uint256' }, { name: 'deadline', type: 'uint256' }, { name: 'deliverableHash', type: 'bytes32' }, { name: 'deliverableURI', type: 'string' }], stateMutability: 'view', type: 'function' },
   { inputs: [], name: 'getTaskCount', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },

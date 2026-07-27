@@ -284,9 +284,24 @@ contract TaskEscrow is Ownable2Step, ReentrancyGuard {
     /**
      * @notice Expire task (auto-refund after deadline)
      */
+    /**
+     * @notice Refund the requester once a task has passed its deadline undelivered
+     * @dev InProgress must be expirable, not just Open and Accepted. Otherwise a
+     *      provider who calls startTask and then misses the deadline locks the
+     *      escrow permanently: submitDeliverable rejects an expired task, and
+     *      every other exit requires Submitted, Open or Disputed. startTask grants
+     *      the provider nothing, so leaving it out turned a recoverable state into
+     *      an unrecoverable one.
+     *      Permissionless because funds can only ever return to the requester.
+     */
     function expireTask(uint256 taskId) external nonReentrant {
         Task storage task = tasks[taskId];
-        require(task.status == TaskStatus.Open || task.status == TaskStatus.Accepted, "Cannot expire");
+        require(
+            task.status == TaskStatus.Open ||
+                task.status == TaskStatus.Accepted ||
+                task.status == TaskStatus.InProgress,
+            "Cannot expire"
+        );
         require(block.timestamp > task.deadline, "Not expired");
 
         task.status = TaskStatus.Expired;
